@@ -5,9 +5,6 @@ import {
   Truck,
   Snowflake,
   Users,
-  Edit3,
-  Save,
-  RotateCcw,
   Check,
   HelpCircle,
   ArrowRight,
@@ -21,8 +18,8 @@ interface PhuLucViewerModalProps {
   isOpen: boolean;
   onClose: () => void;
   vehicles: VehicleOption[];
-  onSaveVehicles: (updated: VehicleOption[]) => void;
-  onResetVehicles: () => void;
+  onSaveVehicles?: (updated: VehicleOption[]) => void;
+  onResetVehicles?: () => void;
   onSelectVehicle?: (vehicleId: string) => void;
   currentDieselPrice?: number;
   initialTab?: VehicleCategory;
@@ -32,51 +29,19 @@ export const PhuLucViewerModal: React.FC<PhuLucViewerModalProps> = ({
   isOpen,
   onClose,
   vehicles,
-  onSaveVehicles,
-  onResetVehicles,
   onSelectVehicle,
   currentDieselPrice = 29200,
   initialTab = 'truck_dry',
 }) => {
   const [activeCategory, setActiveCategory] = useState<VehicleCategory>(initialTab);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedVehicles, setEditedVehicles] = useState<VehicleOption[]>(vehicles);
-
-  // Sync state when props change
-  React.useEffect(() => {
-    setEditedVehicles(vehicles);
-  }, [vehicles]);
 
   if (!isOpen) return null;
 
   // Filter out duplicate legacy aliases
-  const cleanList = editedVehicles.filter(
+  const cleanList = vehicles.filter(
     (v) =>
       !['dry_2500kg', 'dry_5000kg', 'dry_8000kg', 'dry_28000kg', 'reefer_2d_2500kg', 'reefer_2d_5000kg', 'reefer_1d_2500kg', 'reefer_1d_5000kg', 'reefer_2d_28000kg', 'dry_2d_2500kg', 'dry_1d_2500kg'].includes(v.id)
   );
-
-  const handleCellChange = (id: string, field: keyof VehicleOption, value: number) => {
-    setEditedVehicles((prev) =>
-      prev.map((v) => {
-        if (v.id === id) {
-          return { ...v, [field]: value };
-        }
-        return v;
-      })
-    );
-  };
-
-  const handleSave = () => {
-    onSaveVehicles(editedVehicles);
-    setIsEditing(false);
-  };
-
-  const handleReset = () => {
-    if (window.confirm('Khôi phục toàn bộ bảng giá Phụ lục 1 và Phụ lục 2 về giá gốc mặc định của Viettel Logistics?')) {
-      onResetVehicles();
-      setIsEditing(false);
-    }
-  };
 
   // Group definitions for Phụ lục 1 (Xe Nóng)
   const phuLuc1Groups = [
@@ -159,7 +124,7 @@ export const PhuLucViewerModal: React.FC<PhuLucViewerModalProps> = ({
                     : 'PHỤ LỤC 2: BẢNG GIÁ VỐN VẬN CHUYỂN XE LẠNH'}
                 </h3>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">
-                  Biểu giá chuẩn Viettel
+                  Biểu giá chuẩn Viettel Logistics
                 </span>
               </div>
               <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5 flex-wrap">
@@ -179,12 +144,13 @@ export const PhuLucViewerModal: React.FC<PhuLucViewerModalProps> = ({
           <button
             onClick={onClose}
             className="p-2 text-slate-400 hover:text-slate-800 rounded-lg hover:bg-stone-100 transition"
+            title="Đóng bảng giá"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Category Switcher & Toolbar */}
+        {/* Category Switcher */}
         <div className="p-3 sm:p-4 bg-[#FAF8F5] border-b border-stone-200 flex flex-wrap items-center justify-between gap-3">
           {/* Tabs for Phụ lục 1 vs Phụ lục 2 */}
           <div className="inline-flex rounded-xl bg-stone-100 p-1 border border-stone-200">
@@ -212,46 +178,8 @@ export const PhuLucViewerModal: React.FC<PhuLucViewerModalProps> = ({
             </button>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-2">
-            {!isEditing ? (
-              <>
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="px-3 py-1.5 bg-white hover:bg-stone-50 text-slate-700 border border-stone-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-xs"
-                >
-                  <Edit3 className="w-3.5 h-3.5 text-red-600" />
-                  Chỉnh sửa giá gốc
-                </button>
-                <button
-                  onClick={handleReset}
-                  className="px-2.5 py-1.5 text-slate-600 hover:text-slate-900 bg-white hover:bg-stone-50 border border-stone-200 rounded-lg text-xs font-medium flex items-center gap-1.5 transition shadow-xs"
-                  title="Khôi phục về bảng gốc Viettel Logistics"
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Khôi phục gốc</span>
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => {
-                    setEditedVehicles(vehicles);
-                    setIsEditing(false);
-                  }}
-                  className="px-3 py-1.5 bg-white hover:bg-stone-100 text-slate-600 border border-stone-200 rounded-lg text-xs font-semibold transition"
-                >
-                  Hủy
-                </button>
-                <button
-                  onClick={handleSave}
-                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow transition"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  Lưu thay đổi
-                </button>
-              </>
-            )}
+          <div className="text-xs text-slate-500 font-medium">
+            <span>Toàn bộ đơn giá chuẩn theo quyết định ban hành Viettel Logistics</span>
           </div>
         </div>
 
@@ -263,40 +191,43 @@ export const PhuLucViewerModal: React.FC<PhuLucViewerModalProps> = ({
                 <tr className="bg-stone-100 text-slate-800 font-bold border-b border-stone-200">
                   <th rowSpan={2} className="p-2 border-r border-stone-200 w-12 text-center">STT</th>
                   <th rowSpan={2} className="p-2 border-r border-stone-200 min-w-[150px]">Trọng tải xe (Kg)</th>
-                  <th rowSpan={2} className="p-2 border-r border-stone-200 min-w-[130px]">Loại hình kết nối</th>
-                  <th rowSpan={2} className="p-2 border-r border-stone-200 min-w-[95px] text-right">KM tiêu chuẩn</th>
-                  <th rowSpan={2} className="p-2 border-r border-stone-200 min-w-[105px] text-right">Giá tối thiểu</th>
-                  <th rowSpan={2} className="p-2 border-r border-stone-200 min-w-[85px] text-right">Giá hai chiều</th>
-                  <th rowSpan={2} className="p-2 border-r border-stone-200 min-w-[85px] text-right">Đơn giá chiều đi</th>
-                  <th rowSpan={2} className="p-2 border-r border-stone-200 min-w-[85px] text-right">Đơn giá chiều về</th>
-                  <th colSpan={3} className="p-2 border-r border-stone-200 text-center bg-red-50 text-red-700">
-                    Bắc - Nam (Đồng/Km)
+                  <th rowSpan={2} className="p-2 border-r border-stone-200 min-w-[120px]">Nhóm cự ly</th>
+                  <th rowSpan={2} className="p-2 border-r border-stone-200 text-right w-24">Km tiêu chuẩn</th>
+                  <th rowSpan={2} className="p-2 border-r border-stone-200 text-right w-24">Giá tối thiểu (đ)</th>
+                  <th colSpan={3} className="p-2 border-r border-stone-200 text-center bg-stone-200/70">
+                    Nội Tỉnh / Cận Vùng (đ/km)
                   </th>
-                  <th rowSpan={2} className="p-2 border-r border-stone-200 text-center w-14">Hệ số k</th>
+                  <th colSpan={3} className="p-2 border-r border-stone-200 text-center bg-red-100/70 text-red-900">
+                    Bắc - Nam (đ/km)
+                  </th>
+                  <th rowSpan={2} className="p-2 border-r border-stone-200 text-center w-16">Hệ số k</th>
                   {onSelectVehicle && (
-                    <th rowSpan={2} className="p-2 text-center w-24">Áp dụng</th>
+                    <th rowSpan={2} className="p-2 text-center w-20">Hành động</th>
                   )}
                 </tr>
-                <tr className="bg-stone-50 text-slate-600 font-semibold border-b border-stone-200 text-[11px]">
+                <tr className="bg-stone-50 text-slate-600 text-[11px] font-semibold border-b border-stone-200">
+                  <th className="p-1.5 border-r border-stone-200 text-right">Hai chiều</th>
+                  <th className="p-1.5 border-r border-stone-200 text-right">Chiều đi</th>
+                  <th className="p-1.5 border-r border-stone-200 text-right">Chiều về</th>
                   {activeCategory === 'truck_dry' ? (
                     <>
-                      <th className="p-2 border-r border-stone-200 text-right text-rose-700">Chiều vào</th>
-                      <th className="p-2 border-r border-stone-200 text-right text-cyan-700">Chiều ra</th>
-                      <th className="p-2 border-r border-stone-200 text-right text-red-700 font-bold">Hai chiều</th>
+                      <th className="p-1.5 border-r border-stone-200 text-right text-rose-700">Chiều vào (B➔N)</th>
+                      <th className="p-1.5 border-r border-stone-200 text-right text-cyan-700">Chiều ra (N➔B)</th>
+                      <th className="p-1.5 border-r border-stone-200 text-right text-red-700">Hai chiều</th>
                     </>
                   ) : (
                     <>
-                      <th className="p-2 border-r border-stone-200 text-right text-cyan-700">Chiều ra</th>
-                      <th className="p-2 border-r border-stone-200 text-right text-rose-700">Chiều Vào</th>
-                      <th className="p-2 border-r border-stone-200 text-right text-red-700 font-bold">Hai chiều</th>
+                      <th className="p-1.5 border-r border-stone-200 text-right text-cyan-700">Chiều ra (N➔B)</th>
+                      <th className="p-1.5 border-r border-stone-200 text-right text-rose-700">Chiều vào (B➔N)</th>
+                      <th className="p-1.5 border-r border-stone-200 text-right text-red-700">Hai chiều</th>
                     </>
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-stone-100 text-slate-700">
+              <tbody className="divide-y divide-stone-100">
                 {activeGroups.map((group, gIdx) => (
                   <React.Fragment key={gIdx}>
-                    {/* Section Header Row */}
+                    {/* Group Header Row */}
                     <tr className="bg-stone-100/90 border-y border-stone-200 font-bold text-slate-900">
                       <td colSpan={onSelectVehicle ? 13 : 12} className="p-2.5 px-3 text-xs bg-[#F5F2EB]">
                         <div className="flex items-center justify-between">
@@ -348,20 +279,9 @@ export const PhuLucViewerModal: React.FC<PhuLucViewerModalProps> = ({
                         {/* Giá tối thiểu */}
                         <td className="p-2 border-r border-stone-100 text-right font-mono">
                           {v.minPriceG0 > 0 ? (
-                            isEditing ? (
-                              <input
-                                type="number"
-                                value={v.minPriceG0}
-                                onChange={(e) =>
-                                  handleCellChange(v.id, 'minPriceG0', Number(e.target.value) || 0)
-                                }
-                                className="w-24 px-1.5 py-0.5 bg-white border border-stone-300 rounded text-right text-slate-900 font-mono text-xs focus:ring-1 focus:ring-red-500"
-                              />
-                            ) : (
-                              <span className="text-red-700 font-semibold">
-                                {formatCurrency(v.minPriceG0)}
-                              </span>
-                            )
+                            <span className="text-red-700 font-semibold">
+                              {formatCurrency(v.minPriceG0)}
+                            </span>
                           ) : (
                             <span className="text-slate-400">-</span>
                           )}
@@ -370,18 +290,7 @@ export const PhuLucViewerModal: React.FC<PhuLucViewerModalProps> = ({
                         {/* Giá hai chiều */}
                         <td className="p-2 border-r border-stone-100 text-right font-mono">
                           {v.connectionCategory === 'noi_vung_noi_tinh' ? (
-                            isEditing ? (
-                              <input
-                                type="number"
-                                value={v.nearRegionTwoWayG0}
-                                onChange={(e) =>
-                                  handleCellChange(v.id, 'nearRegionTwoWayG0', Number(e.target.value) || 0)
-                                }
-                                className="w-20 px-1.5 py-0.5 bg-white border border-stone-300 rounded text-right text-slate-900 font-mono text-xs focus:ring-1 focus:ring-red-500"
-                              />
-                            ) : (
-                              formatNumber(v.nearRegionTwoWayG0)
-                            )
+                            formatNumber(v.nearRegionTwoWayG0)
                           ) : (
                             <span className="text-slate-400">-</span>
                           )}
@@ -390,18 +299,7 @@ export const PhuLucViewerModal: React.FC<PhuLucViewerModalProps> = ({
                         {/* Đơn giá chiều đi */}
                         <td className="p-2 border-r border-stone-100 text-right font-mono">
                           {v.connectionCategory === 'noi_vung_noi_tinh' ? (
-                            isEditing ? (
-                              <input
-                                type="number"
-                                value={v.nearRegionOutG0}
-                                onChange={(e) =>
-                                  handleCellChange(v.id, 'nearRegionOutG0', Number(e.target.value) || 0)
-                                }
-                                className="w-20 px-1.5 py-0.5 bg-white border border-stone-300 rounded text-right text-slate-900 font-mono text-xs focus:ring-1 focus:ring-red-500"
-                              />
-                            ) : (
-                              formatNumber(v.nearRegionOutG0)
-                            )
+                            formatNumber(v.nearRegionOutG0)
                           ) : (
                             <span className="text-slate-400">-</span>
                           )}
@@ -410,18 +308,7 @@ export const PhuLucViewerModal: React.FC<PhuLucViewerModalProps> = ({
                         {/* Đơn giá chiều về */}
                         <td className="p-2 border-r border-stone-100 text-right font-mono">
                           {v.connectionCategory === 'noi_vung_noi_tinh' ? (
-                            isEditing ? (
-                              <input
-                                type="number"
-                                value={v.nearRegionInG0}
-                                onChange={(e) =>
-                                  handleCellChange(v.id, 'nearRegionInG0', Number(e.target.value) || 0)
-                                }
-                                className="w-20 px-1.5 py-0.5 bg-white border border-stone-300 rounded text-right text-slate-900 font-mono text-xs focus:ring-1 focus:ring-red-500"
-                              />
-                            ) : (
-                              formatNumber(v.nearRegionInG0)
-                            )
+                            formatNumber(v.nearRegionInG0)
                           ) : (
                             <span className="text-slate-400">-</span>
                           )}
@@ -432,84 +319,29 @@ export const PhuLucViewerModal: React.FC<PhuLucViewerModalProps> = ({
                           <>
                             {/* Bắc - Nam: Chiều vào */}
                             <td className="p-2 border-r border-stone-100 text-right font-mono text-rose-700">
-                              {isEditing ? (
-                                <input
-                                  type="number"
-                                  value={v.northSouthInG0}
-                                  onChange={(e) =>
-                                    handleCellChange(v.id, 'northSouthInG0', Number(e.target.value) || 0)
-                                  }
-                                  className="w-20 px-1.5 py-0.5 bg-white border border-rose-300 rounded text-right text-slate-900 font-mono text-xs focus:ring-1 focus:ring-rose-500"
-                                />
-                              ) : (
-                                formatNumber(v.northSouthInG0)
-                              )}
+                              {formatNumber(v.northSouthInG0)}
                             </td>
 
                             {/* Bắc - Nam: Chiều ra */}
                             <td className="p-2 border-r border-stone-100 text-right font-mono text-cyan-700">
-                              {isEditing ? (
-                                <input
-                                  type="number"
-                                  value={v.northSouthOutG0}
-                                  onChange={(e) =>
-                                    handleCellChange(v.id, 'northSouthOutG0', Number(e.target.value) || 0)
-                                  }
-                                  className="w-20 px-1.5 py-0.5 bg-white border border-cyan-300 rounded text-right text-slate-900 font-mono text-xs focus:ring-1 focus:ring-cyan-500"
-                                />
-                              ) : (
-                                formatNumber(v.northSouthOutG0)
-                              )}
+                              {formatNumber(v.northSouthOutG0)}
                             </td>
 
                             {/* Bắc - Nam: Hai chiều */}
                             <td className="p-2 border-r border-stone-100 text-right font-mono text-red-700 font-bold">
-                              {isEditing ? (
-                                <input
-                                  type="number"
-                                  value={v.northSouthTwoWayG0}
-                                  onChange={(e) =>
-                                    handleCellChange(v.id, 'northSouthTwoWayG0', Number(e.target.value) || 0)
-                                  }
-                                  className="w-20 px-1.5 py-0.5 bg-white border border-red-300 rounded text-right text-slate-900 font-mono text-xs focus:ring-1 focus:ring-red-500"
-                                />
-                              ) : (
-                                formatNumber(v.northSouthTwoWayG0)
-                              )}
+                              {formatNumber(v.northSouthTwoWayG0)}
                             </td>
                           </>
                         ) : (
                           <>
                             {/* Bắc - Nam: Chiều ra */}
                             <td className="p-2 border-r border-stone-100 text-right font-mono text-cyan-700">
-                              {isEditing ? (
-                                <input
-                                  type="number"
-                                  value={v.northSouthOutG0}
-                                  onChange={(e) =>
-                                    handleCellChange(v.id, 'northSouthOutG0', Number(e.target.value) || 0)
-                                  }
-                                  className="w-20 px-1.5 py-0.5 bg-white border border-cyan-300 rounded text-right text-slate-900 font-mono text-xs focus:ring-1 focus:ring-cyan-500"
-                                />
-                              ) : (
-                                formatNumber(v.northSouthOutG0)
-                              )}
+                              {formatNumber(v.northSouthOutG0)}
                             </td>
 
                             {/* Bắc - Nam: Chiều vào */}
                             <td className="p-2 border-r border-stone-100 text-right font-mono text-rose-700">
-                              {isEditing ? (
-                                <input
-                                  type="number"
-                                  value={v.northSouthInG0}
-                                  onChange={(e) =>
-                                    handleCellChange(v.id, 'northSouthInG0', Number(e.target.value) || 0)
-                                  }
-                                  className="w-20 px-1.5 py-0.5 bg-white border border-rose-300 rounded text-right text-slate-900 font-mono text-xs focus:ring-1 focus:ring-rose-500"
-                                />
-                              ) : (
-                                formatNumber(v.northSouthInG0)
-                              )}
+                              {formatNumber(v.northSouthInG0)}
                             </td>
 
                             {/* Bắc - Nam: Hai chiều */}

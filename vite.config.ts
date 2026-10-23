@@ -18,9 +18,9 @@ export default defineConfig(() => {
       allowedHosts: true,
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
-      configureServer(server) {
+      configureServer(server: any) {
         // Endpoint lấy dữ liệu giá xăng dầu PVOil
-        server.middlewares.use('/api/pvoil/prices', async (req, res) => {
+        server.middlewares.use('/api/pvoil/prices', async (req: any, res: any) => {
           res.setHeader('Content-Type', 'application/json');
 
           const fetchTier0Pvoil = (): Promise<any> => {
@@ -166,7 +166,7 @@ export default defineConfig(() => {
         });
 
         // Endpoint test API PVOil
-        server.middlewares.use('/api/pvoil/test-api', async (req, res) => {
+        server.middlewares.use('/api/pvoil/test-api', async (req: any, res: any) => {
           res.setHeader('Content-Type', 'application/json');
           const start = Date.now();
           try {
@@ -222,7 +222,7 @@ export default defineConfig(() => {
           }
         });
       },
-    },
+    } as any,
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

@@ -191,18 +191,19 @@ export default function App() {
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Navigation Tabs (Mobile & Desktop friendly) */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 pb-3">
-          <div className="flex items-center gap-2 bg-white p-1 rounded-2xl border border-stone-200 flex-wrap shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 border-b border-stone-200 pb-3">
+          <div className="flex items-center gap-1 sm:gap-2 bg-white p-1 rounded-2xl border border-stone-200 flex-wrap shadow-xs w-full sm:w-auto">
             <button
               onClick={() => setActiveTab('calculator')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                 activeTab === 'calculator'
                   ? 'bg-gradient-to-r from-red-600 via-[#EE0033] to-red-600 text-white shadow-sm shadow-red-600/30'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-stone-50'
               }`}
             >
-              <Calculator className="w-4 h-4" />
-              <span>Quy Trình 5 Bước Tính Giá Cước</span>
+              <Calculator className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="hidden sm:inline">Quy Trình 5 Bước Tính Giá Cước</span>
+              <span className="sm:hidden">Tính cước</span>
             </button>
 
             <button
@@ -210,31 +211,34 @@ export default function App() {
                 setPhuLucInitialTab('truck_dry');
                 setIsPhuLucOpen(true);
               }}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-700 hover:text-red-600 hover:bg-stone-50 border border-stone-200 transition"
-              title="Xem và chỉnh sửa trực tiếp bảng giá gốc Phụ lục 1 (Xe Nóng) và Phụ lục 2 (Xe Lạnh)"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-700 hover:text-red-600 hover:bg-stone-50 border border-stone-200 transition"
+              title="Xem bảng giá gốc Phụ lục 1 (Xe Nóng) và Phụ lục 2 (Xe Lạnh)"
             >
-              <FileSpreadsheet className="w-4 h-4 text-red-600" />
-              <span>Bảng Giá Phụ Lục 1 &amp; 2 (Viettel)</span>
+              <FileSpreadsheet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600 shrink-0" />
+              <span className="hidden sm:inline">Bảng Giá Phụ Lục 1 &amp; 2 (Viettel)</span>
+              <span className="sm:hidden">Phụ lục 1 &amp; 2</span>
             </button>
 
             <button
               onClick={() => setActiveTab('pvoil')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                 activeTab === 'pvoil'
                   ? 'bg-gradient-to-r from-red-600 via-[#EE0033] to-red-600 text-white shadow-sm shadow-red-600/30'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-stone-50'
               }`}
             >
-              <Fuel className="w-4 h-4" />
-              <span>Bảng Giá Xăng Dầu PVOIL</span>
+              <Fuel className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="hidden sm:inline">Bảng Giá Xăng Dầu PVOIL</span>
+              <span className="sm:hidden">Giá dầu</span>
             </button>
           </div>
 
           {/* Quick Notice Badge */}
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-stone-200 text-emerald-700 font-medium shadow-xs">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              API PVOIL Tầng 0 (103.21.120.100)
+          <div className="flex items-center gap-2 text-xs text-slate-500 w-full sm:w-auto justify-end">
+            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-white border border-stone-200 text-emerald-700 text-[11px] sm:text-xs font-medium shadow-xs">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span className="hidden sm:inline">API PVOIL Tầng 0 (103.21.120.100)</span>
+              <span className="sm:hidden">API PVOIL 103.21.120.100</span>
             </span>
           </div>
         </div>

@@ -101,12 +101,12 @@ export function calculateFreightPrice(input: CalculationInput, customVehicles?: 
   }
 
   // 9. Tổng cước trước VAT
-  const subtotalBeforeVat = directionCharge + coolingCost + retentionCost;
+  const subtotalBeforeVat = Math.round(directionCharge + coolingCost + retentionCost);
 
   // 10. Thuế VAT
   const vatRate = Number(input.vatRate) || 0;
   const vatAmount = Math.round(subtotalBeforeVat * (vatRate / 100));
-  const totalWithVat = subtotalBeforeVat + vatAmount;
+  const totalWithVat = Math.round(subtotalBeforeVat + vatAmount);
 
   // 11. Đơn giá bình quân thực tế mỗi km
   const unitPricePerKmEffective = km > 0 ? Math.round(subtotalBeforeVat / km) : 0;
@@ -150,11 +150,11 @@ export function calculateFreightPrice(input: CalculationInput, customVehicles?: 
 
 export function formatCurrency(amount: number): string {
   if (isNaN(amount) || amount === null || amount === undefined) return '0 ₫';
+  const rounded = Math.round(amount);
   return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
     maximumFractionDigits: 0,
-  }).format(amount);
+    minimumFractionDigits: 0,
+  }).format(rounded) + ' ₫';
 }
 
 export function formatNumber(val: number, maxFraction = 2): string {

@@ -103,12 +103,12 @@ Biểu giá căn cứ theo ${result.vehicle.category === 'truck_reefer' ? 'Phụ
           Tổng cước vận chuyển {input.vatRate > 0 ? `(Đã gồm ${input.vatRate}% VAT)` : '(Chưa gồm VAT)'}:
         </div>
         <div className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight my-1 flex items-baseline gap-1">
-          <span className="text-[#EE0033] font-mono">{formatCurrency(result.totalWithVat)}</span>
+          <span className="text-[#EE0033] font-mono">{formatCurrency(Math.round(result.totalWithVat))}</span>
         </div>
         <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-stone-200">
           <span>Đơn giá bình quân thực tế:</span>
           <span className="font-mono font-bold text-slate-800">
-            {formatCurrency(result.unitPricePerKmEffective)}/km
+            {formatCurrency(Math.round(result.unitPricePerKmEffective))}/km
           </span>
         </div>
       </div>
