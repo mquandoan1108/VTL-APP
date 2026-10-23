@@ -1,0 +1,6 @@
+{
+  "name": "Viettel Logistics - Tính Giá Cước Vận Chuyển & Xăng Dầu Petrolimex",
+  "description": "Ứng dụng tính giá vốn vận chuyển xe tải, xe đông lạnh, xe container kéo cảng theo biến động giá dầu Petrolimex, cự ly km, loại hình và chiều kết nối Bắc - Nam.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
