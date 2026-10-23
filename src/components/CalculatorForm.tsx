@@ -15,11 +15,16 @@ import {
   Check,
   Users,
   FileSpreadsheet,
+  Layers,
+  ArrowRight,
+  ShieldCheck,
+  UserCheck,
 } from 'lucide-react';
 import {
   VehicleCategory,
   ConnectionType,
   ConnectionDirection,
+  ConnectionCategory,
   CalculationInput,
   VehicleOption,
 } from '../types/logistics';
@@ -27,6 +32,7 @@ import {
   VEHICLE_OPTIONS,
   MIN_KM_THRESHOLD,
   BASE_DIESEL_PRICE,
+  getVehiclesByFilters,
 } from '../data/pricingData';
 import { VIETNAM_PROVINCES, detectDirectionAndConnection } from '../data/provinces';
 import { formatCurrency, formatNumber } from '../utils/calculator';
@@ -36,7 +42,7 @@ interface CalculatorFormProps {
   onChange: (input: CalculationInput) => void;
   currentDieselPrice: number;
   vehicles?: VehicleOption[];
-  onOpenPhuLuc1Editor?: () => void;
+  onOpenPhuLucModal?: (category?: VehicleCategory) => void;
 }
 
 export const CalculatorForm: React.FC<CalculatorFormProps> = ({
@@ -44,7 +50,7 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
   onChange,
   currentDieselPrice,
   vehicles,
-  onOpenPhuLuc1Editor,
+  onOpenPhuLucModal,
 }) => {
   const fromSelectId = useId();
   const toSelectId = useId();
@@ -60,16 +66,7 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
 
   const effectiveVehicles = vehicles || VEHICLE_OPTIONS;
 
-  // Lọc phương tiện theo loại hình xe và số lái xe (1 lái hoặc 2 lái)
-  // Áp dụng cho cả Xe Lạnh (Phụ lục 2) và Xe Nóng (Phụ lục 1)
-  const categoryVehicles = effectiveVehicles.filter((v) => {
-    if (['dry_2500kg', 'dry_5000kg', 'dry_8000kg', 'dry_28000kg'].includes(v.id)) return false;
-    return v.category === input.vehicleCategory && v.driverCount === (input.driverCount || 2);
-  });
-
-  const selectedVehicle =
-    effectiveVehicles.find((v) => v.id === input.vehicleId) || categoryVehicles[0] || effectiveVehicles[0];
-
+  // Tỉnh đi & đến
   const fromProvince = VIETNAM_PROVINCES.find((p) => p.id === input.fromProvinceId) || VIETNAM_PROVINCES[0];
   const toProvince = VIETNAM_PROVINCES.find((p) => p.id === input.toProvinceId) || VIETNAM_PROVINCES[0];
 
@@ -77,82 +74,121 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
   const routeInfo = detectDirectionAndConnection(input.fromProvinceId, input.toProvinceId);
   const isNorthSouth = routeInfo.isNorthSouthRoute;
 
-  // Xác định đơn giá G0 tương ứng theo Phụ lục 1 / Phụ lục 2
-  let currentRateG0: number;
+  // Xác định Loại hình kết nối hiện hành: ưu tiên input.connectionCategory, nếu chưa có thì lấy theo xe hiện tại hoặc routeInfo
+  const currentVehicle =
+    effectiveVehicles.find((v) => v.id === input.vehicleId) ||
+    effectiveVehicles.find((v) => v.category === input.vehicleCategory) ||
+    effectiveVehicles[0];
+
+  const activeConnectionCategory: ConnectionCategory =
+    input.connectionCategory || currentVehicle.connectionCategory || (isNorthSouth ? 'bac_nam_can_vung' : 'noi_vung_noi_tinh');
+
+  const activeDriverCount = input.driverCount || currentVehicle.driverCount || 2;
+  const isReeferCoolingOff = Boolean(input.isReeferCoolingOff || currentVehicle.specialType === 'ngat_lanh');
+
+  // Lọc phương tiện phù hợp theo 4 tiêu chí
+  const availableVehicles = getVehiclesByFilters(
+    effectiveVehicles,
+    input.vehicleCategory,
+    activeConnectionCategory,
+    activeDriverCount,
+    isReeferCoolingOff
+  );
+
+  // Đảm bảo xe đã chọn thuộc danh sách khả dụng
+  const selectedVehicle =
+    availableVehicles.find((v) => v.id === input.vehicleId) ||
+    availableVehicles[0] ||
+    currentVehicle;
+
+  // Xác định đơn giá G0 tương ứng theo bảng giá Phụ lục 1 / Phụ lục 2
+  let currentRateG0 = 0;
   let columnNameInSheet = '';
 
-  if (isNorthSouth) {
+  if (activeConnectionCategory === 'bac_nam_can_vung' || isNorthSouth) {
     if (input.direction === 'chieu_ra') {
       currentRateG0 = selectedVehicle.northSouthOutG0;
-      columnNameInSheet = 'Bắc - Nam Chiều ra';
+      columnNameInSheet = input.vehicleCategory === 'truck_dry' ? 'Bắc - Nam Chiều ra' : 'Bắc - Nam Chiều ra';
     } else if (input.direction === 'chieu_vao') {
       currentRateG0 = selectedVehicle.northSouthInG0;
-      columnNameInSheet = 'Bắc - Nam Chiều Vào';
+      columnNameInSheet = input.vehicleCategory === 'truck_dry' ? 'Bắc - Nam Chiều vào' : 'Bắc - Nam Chiều Vào';
     } else {
-      currentRateG0 = selectedVehicle.northSouthTwoWayG0 || Math.round((selectedVehicle.northSouthOutG0 + selectedVehicle.northSouthInG0) / 2);
+      currentRateG0 =
+        selectedVehicle.northSouthTwoWayG0 > 0
+          ? selectedVehicle.northSouthTwoWayG0
+          : Math.round((selectedVehicle.northSouthOutG0 + selectedVehicle.northSouthInG0) / 2);
       columnNameInSheet = 'Bắc - Nam Hai chiều';
     }
   } else {
+    // Nội Vùng, Nội Tỉnh (Bao gồm Bắc-Bắc, Trung-Trung, Nam-Nam)
     if (input.direction === 'chieu_ra') {
       currentRateG0 = selectedVehicle.nearRegionOutG0;
-      columnNameInSheet = 'Đơn giá chiều đi (Cận vùng/Nội vùng)';
+      columnNameInSheet = 'Đơn giá chiều đi (Nội vùng, Cận vùng)';
     } else if (input.direction === 'chieu_vao') {
       currentRateG0 = selectedVehicle.nearRegionInG0;
-      columnNameInSheet = 'Đơn giá chiều về (Cận vùng/Nội vùng)';
+      columnNameInSheet = 'Đơn giá chiều về (Nội vùng, Cận vùng)';
     } else {
       currentRateG0 = selectedVehicle.nearRegionTwoWayG0;
-      columnNameInSheet = 'Giá hai chiều (Cận vùng/Nội vùng)';
+      columnNameInSheet = 'Giá hai chiều (Nội vùng, Cận vùng)';
     }
   }
 
   // Đơn giá sau bù giá dầu PVOIL
-  const dieselDiffRatio = (currentDieselPrice - (input.baseDieselPrice || BASE_DIESEL_PRICE)) / (input.baseDieselPrice || BASE_DIESEL_PRICE);
+  const baseDiesel = input.baseDieselPrice || BASE_DIESEL_PRICE;
+  const dieselDiffRatio = (currentDieselPrice - baseDiesel) / baseDiesel;
   const oilAdjustmentRate = selectedVehicle.oilFactorK * dieselDiffRatio;
   const currentRateG1 = Math.round(currentRateG0 * (1 + oilAdjustmentRate));
   const minPriceG1 = Math.round(selectedVehicle.minPriceG0 * (1 + oilAdjustmentRate));
 
-  // Chuyển loại hình xe (Xe Lạnh <-> Xe Nóng)
+  // Chuyển loại hình xe (Xe Nóng <-> Xe Lạnh)
   const handleCategoryChange = (cat: VehicleCategory) => {
-    const defaultForCat =
-      effectiveVehicles.find(
-        (v) =>
-          v.category === cat &&
-          v.driverCount === input.driverCount &&
-          !['dry_2500kg', 'dry_5000kg', 'dry_8000kg', 'dry_28000kg'].includes(v.id)
-      ) ||
-      effectiveVehicles.find((v) => v.category === cat && !['dry_2500kg', 'dry_5000kg', 'dry_8000kg', 'dry_28000kg'].includes(v.id)) ||
-      effectiveVehicles[0];
+    const list = getVehiclesByFilters(effectiveVehicles, cat, activeConnectionCategory, activeDriverCount, isReeferCoolingOff);
+    const target = list[0] || effectiveVehicles.find((v) => v.category === cat) || effectiveVehicles[0];
 
     onChange({
       ...input,
       vehicleCategory: cat,
-      vehicleId: defaultForCat.id,
+      vehicleId: target.id,
+      connectionCategory: activeConnectionCategory,
+    });
+  };
+
+  // Chuyển Loại hình kết nối (Nội Vùng, Nội Tỉnh <-> Bắc Nam, Cận Vùng)
+  const handleConnectionCategoryChange = (connCat: ConnectionCategory) => {
+    const list = getVehiclesByFilters(effectiveVehicles, input.vehicleCategory, connCat, activeDriverCount, isReeferCoolingOff);
+    const target = list[0] || effectiveVehicles[0];
+
+    onChange({
+      ...input,
+      connectionCategory: connCat,
+      vehicleId: target.id,
     });
   };
 
   // Chuyển số lái xe (1 lái / 2 lái)
   const handleDriverCountChange = (count: 1 | 2) => {
-    const matching =
-      effectiveVehicles.find(
-        (v) =>
-          v.category === input.vehicleCategory &&
-          v.driverCount === count &&
-          v.tonnageKg === selectedVehicle.tonnageKg &&
-          v.specialType === selectedVehicle.specialType &&
-          !['dry_2500kg', 'dry_5000kg', 'dry_8000kg', 'dry_28000kg'].includes(v.id)
-      ) ||
-      effectiveVehicles.find(
-        (v) =>
-          v.category === input.vehicleCategory &&
-          v.driverCount === count &&
-          !['dry_2500kg', 'dry_5000kg', 'dry_8000kg', 'dry_28000kg'].includes(v.id)
-      ) ||
-      effectiveVehicles[0];
+    const list = getVehiclesByFilters(effectiveVehicles, input.vehicleCategory, activeConnectionCategory, count, isReeferCoolingOff);
+    const sameTonnage = list.find((v) => v.tonnageKg === selectedVehicle.tonnageKg);
+    const target = sameTonnage || list[0] || effectiveVehicles[0];
 
     onChange({
       ...input,
       driverCount: count,
-      vehicleId: matching.id,
+      vehicleId: target.id,
+      connectionCategory: activeConnectionCategory,
+    });
+  };
+
+  // Bật/tắt chế độ Ngắt Lạnh cho Xe Lạnh
+  const handleToggleCoolingOff = (coolingOff: boolean) => {
+    const list = getVehiclesByFilters(effectiveVehicles, 'truck_reefer', 'bac_nam_can_vung', activeDriverCount, coolingOff);
+    const target = list[0] || effectiveVehicles[0];
+
+    onChange({
+      ...input,
+      isReeferCoolingOff: coolingOff,
+      vehicleId: target.id,
+      coolingHours: coolingOff ? 0 : input.coolingHours,
     });
   };
 
@@ -164,12 +200,28 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
     const detected = detectDirectionAndConnection(newFromId, newToId);
     const destProvince = VIETNAM_PROVINCES.find((p) => p.id === newToId);
 
+    // Tự động gợi ý loại hình kết nối:
+    // Nếu là tuyến Bắc - Nam (Nam ra Bắc hoặc Bắc vào Nam) -> 'bac_nam_can_vung'
+    // Nếu là Bắc -> Bắc, Trung -> Trung, Nam -> Nam hoặc nội miền -> 'noi_vung_noi_tinh'
+    const suggestedConnCat: ConnectionCategory = detected.isNorthSouthRoute ? 'bac_nam_can_vung' : 'noi_vung_noi_tinh';
+
+    let newVehicleId = input.vehicleId;
+    const currentVeh = effectiveVehicles.find((v) => v.id === input.vehicleId);
+    if (currentVeh && currentVeh.connectionCategory !== suggestedConnCat) {
+      const matchedList = getVehiclesByFilters(effectiveVehicles, input.vehicleCategory, suggestedConnCat, activeDriverCount, isReeferCoolingOff);
+      if (matchedList.length > 0) {
+        newVehicleId = matchedList[0].id;
+      }
+    }
+
     onChange({
       ...input,
       fromProvinceId: newFromId,
       toProvinceId: newToId,
       direction: detected.direction,
       connectionType: detected.connectionType,
+      connectionCategory: suggestedConnCat,
+      vehicleId: newVehicleId,
       km: detected.suggestedKm,
       petrolimexZone: destProvince?.petrolimexZone || 1,
     });
@@ -193,198 +245,373 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
   return (
     <div className="space-y-5">
       {/* ============================================================== */}
-      {/* BƯỚC 1: CHỌN LOẠI HÌNH XE (CHỈ CÒN 2 BẢNG GIÁ THEO YÊU CẦU) */}
+      {/* BƯỚC 1: CHỌN LOẠI HÌNH XE (PHỤ LỤC 1 VS PHỤ LỤC 2) */}
       {/* ============================================================== */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl">
+      <div className="bg-white border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-xs">
         <div className="flex items-center justify-between mb-3.5">
-          <label className="text-sm font-bold text-white flex items-center gap-2">
-            <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs flex items-center justify-center">
+          <label className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <span className="w-6 h-6 rounded-lg bg-red-600 text-white font-bold text-xs flex items-center justify-center shadow-sm shadow-red-600/30">
               1
             </span>
-            Chọn Loại hình xe (2 Bảng giá chính)
+            Chọn Loại hình xe &amp; Bảng giá chuẩn
           </label>
-          <span className="text-xs text-slate-400">Đã bỏ xe cont kéo cảng</span>
+          {onOpenPhuLucModal && (
+            <button
+              type="button"
+              onClick={() => onOpenPhuLucModal(input.vehicleCategory)}
+              className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1.5 transition underline-offset-4 hover:underline"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              Xem bảng giá gốc Viettel
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          {/* Bảng 1: Xe Lạnh (Phụ lục 2) */}
-          <button
-            type="button"
-            onClick={() => handleCategoryChange('truck_reefer')}
-            className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between ${
-              input.vehicleCategory === 'truck_reefer'
-                ? 'bg-amber-500/10 border-amber-500 text-white ring-1 ring-amber-500/40 shadow-lg'
-                : 'bg-slate-850 hover:bg-slate-800 border-slate-750 text-slate-300'
-            }`}
-          >
-            <div className="flex items-center justify-between w-full mb-2">
-              <div
-                className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                  input.vehicleCategory === 'truck_reefer'
-                    ? 'bg-cyan-500 text-slate-950 font-bold'
-                    : 'bg-slate-800 text-slate-400'
-                }`}
-              >
-                <Snowflake className="w-5 h-5" />
-              </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                Phụ lục 2 Viettel Logistics
-              </span>
-            </div>
-            <div>
-              <div className="font-bold text-base text-white">Xe Lạnh (Đông mát)</div>
-              <div className="text-xs text-slate-400 mt-1 leading-snug">
-                Bảng giá chuẩn 100% từng số theo Phụ lục 2 (2.500kg, 5.000kg, 8.000kg, 28.000kg)
-              </div>
-            </div>
-          </button>
-
-          {/* Bảng 2: Xe Nóng (Phụ lục 1) */}
+          {/* Phụ lục 1: Xe Nóng */}
           <button
             type="button"
             onClick={() => handleCategoryChange('truck_dry')}
             className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between ${
               input.vehicleCategory === 'truck_dry'
-                ? 'bg-amber-500/10 border-amber-500 text-white ring-1 ring-amber-500/40 shadow-lg'
-                : 'bg-slate-850 hover:bg-slate-800 border-slate-750 text-slate-300'
+                ? 'bg-red-50/70 border-red-500 text-slate-900 ring-2 ring-red-500/30 shadow-sm'
+                : 'bg-[#FAF8F5] hover:bg-[#F3EFE6] border-stone-200 text-slate-700'
             }`}
           >
             <div className="flex items-center justify-between w-full mb-2">
               <div
-                className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                   input.vehicleCategory === 'truck_dry'
-                    ? 'bg-amber-500 text-slate-950 font-bold'
-                    : 'bg-slate-800 text-slate-400'
+                    ? 'bg-red-600 text-white font-bold shadow-sm shadow-red-600/30'
+                    : 'bg-stone-200 text-slate-600'
                 }`}
               >
                 <Truck className="w-5 h-5" />
               </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                Phụ lục 1 Viettel Logistics
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
+                Phụ lục 1 Viettel
               </span>
             </div>
             <div>
-              <div className="font-bold text-base text-white">Xe Nóng (Thùng kín/bạt)</div>
-              <div className="text-xs text-slate-400 mt-1 leading-snug">
-                Bảng giá chuẩn theo Phụ lục 1 (2.500kg, 5.000kg, 8.000kg, 28.000kg; 1 lái &amp; 2 lái)
+              <div className="font-bold text-base text-slate-900">Xe Nóng (Thùng kín / bạt)</div>
+              <div className="text-xs text-slate-500 mt-1 leading-snug">
+                Bảng giá vốn vận chuyển xe tải thông thường từ 2.500kg đến 28.000kg (1 lái &amp; 2 lái)
+              </div>
+            </div>
+          </button>
+
+          {/* Phụ lục 2: Xe Lạnh */}
+          <button
+            type="button"
+            onClick={() => handleCategoryChange('truck_reefer')}
+            className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between ${
+              input.vehicleCategory === 'truck_reefer'
+                ? 'bg-cyan-50/80 border-cyan-500 text-slate-900 ring-2 ring-cyan-500/30 shadow-sm'
+                : 'bg-[#FAF8F5] hover:bg-[#F3EFE6] border-stone-200 text-slate-700'
+            }`}
+          >
+            <div className="flex items-center justify-between w-full mb-2">
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                  input.vehicleCategory === 'truck_reefer'
+                    ? 'bg-cyan-600 text-white font-bold shadow-sm shadow-cyan-600/30'
+                    : 'bg-stone-200 text-slate-600'
+                }`}
+              >
+                <Snowflake className="w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200">
+                Phụ lục 2 Viettel
+              </span>
+            </div>
+            <div>
+              <div className="font-bold text-base text-slate-900">Xe Lạnh (Đông mát)</div>
+              <div className="text-xs text-slate-500 mt-1 leading-snug">
+                Bảng giá vốn vận chuyển xe đông lạnh 2.500kg, 5.000kg, 8.000kg, 28.000kg (chuẩn, cửa khẩu, ngắt lạnh)
               </div>
             </div>
           </button>
         </div>
+      </div>
 
-        {/* Tùy chọn 1 lái / 2 lái cho xe lạnh (Phụ lục 2) và xe nóng (Phụ lục 1) */}
-        <div className="mt-3.5 pt-3.5 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
-          <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-            <Users className="w-3.5 h-3.5 text-amber-400" />
-            Biểu số lái xe ({input.vehicleCategory === 'truck_reefer' ? 'Phụ lục 2 - Xe Lạnh' : 'Phụ lục 1 - Xe Nóng'}):
+      {/* ============================================================== */}
+      {/* BƯỚC 2: CHỌN LOẠI HÌNH KẾT NỐI & SỐ LÁI XE */}
+      {/* ============================================================== */}
+      <div className="bg-white border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <span className="w-6 h-6 rounded-lg bg-red-600 text-white font-bold text-xs flex items-center justify-center shadow-sm shadow-red-600/30">
+              2
+            </span>
+            Chọn Loại hình kết nối &amp; Định mức lái xe
+          </label>
+        </div>
+
+        {/* 2.1 Loại hình kết nối */}
+        <div className="space-y-1.5">
+          <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5 text-red-600" />
+            Loại hình kết nối:
           </span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={() => handleConnectionCategoryChange('noi_vung_noi_tinh')}
+              className={`p-3 rounded-xl border text-left transition-all ${
+                activeConnectionCategory === 'noi_vung_noi_tinh'
+                  ? 'bg-red-50/70 border-red-500 text-slate-900 ring-1 ring-red-400 shadow-xs'
+                  : 'bg-[#FAF8F5] hover:bg-[#F3EFE6] border-stone-200 text-slate-700'
+              }`}
+            >
+              <div className="flex items-center justify-between font-bold text-sm text-slate-900 mb-1">
+                <span className="flex items-center gap-1.5">
+                  <span>Nội Vùng, Nội Tỉnh</span>
+                </span>
+                {activeConnectionCategory === 'noi_vung_noi_tinh' && (
+                  <Check className="w-4 h-4 text-red-600" />
+                )}
+              </div>
+              <div className="text-[11px] text-slate-500 leading-snug">
+                Áp dụng vận chuyển cự ly ngắn, <strong className="text-slate-800">Bắc ➔ Bắc, Trung ➔ Trung, Nam ➔ Nam</strong> và nội tỉnh. Có mức Giá tối thiểu (KM chuẩn 4.000 - 9.000km).
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleConnectionCategoryChange('bac_nam_can_vung')}
+              className={`p-3 rounded-xl border text-left transition-all ${
+                activeConnectionCategory === 'bac_nam_can_vung'
+                  ? 'bg-red-50/70 border-red-500 text-slate-900 ring-1 ring-red-400 shadow-xs'
+                  : 'bg-[#FAF8F5] hover:bg-[#F3EFE6] border-stone-200 text-slate-700'
+              }`}
+            >
+              <div className="flex items-center justify-between font-bold text-sm text-slate-900 mb-1">
+                <span>Bắc Nam, Cận Vùng</span>
+                {activeConnectionCategory === 'bac_nam_can_vung' && (
+                  <Check className="w-4 h-4 text-red-600" />
+                )}
+              </div>
+              <div className="text-[11px] text-slate-500 leading-snug">
+                Áp dụng vận chuyển đường dài theo tuyến trục xuyên suốt Bắc - Nam hoặc liên vùng (KM chuẩn 9.000 - 15.000km).
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* 2.2 Số lái xe & Chế độ */}
+        <div className="pt-3 border-t border-stone-200 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            {input.vehicleCategory === 'truck_dry' && onOpenPhuLuc1Editor && (
-              <button
-                type="button"
-                onClick={onOpenPhuLuc1Editor}
-                className="px-2.5 py-1 text-xs font-semibold rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 transition"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                Bảng giá Phụ lục 1
-              </button>
-            )}
-            <div className="inline-flex rounded-lg bg-slate-850 p-1 border border-slate-750">
+            <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-red-600" />
+              Số lái xe:
+            </span>
+            <div className="inline-flex rounded-xl bg-stone-100 p-1 border border-stone-200">
               <button
                 type="button"
                 onClick={() => handleDriverCountChange(2)}
-                className={`px-3 py-1 text-xs font-bold rounded-md transition ${
-                  input.driverCount === 2
-                    ? 'bg-amber-500 text-slate-950 shadow'
-                    : 'text-slate-400 hover:text-white'
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition ${
+                  activeDriverCount === 2
+                    ? 'bg-red-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                2 Lái / xe
+                2 Lái / xe (Tuyến dài)
               </button>
               <button
                 type="button"
                 onClick={() => handleDriverCountChange(1)}
-                className={`px-3 py-1 text-xs font-bold rounded-md transition ${
-                  input.driverCount === 1
-                    ? 'bg-amber-500 text-slate-950 shadow'
-                    : 'text-slate-400 hover:text-white'
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition ${
+                  activeDriverCount === 1
+                    ? 'bg-red-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                1 Lái / xe
+                1 Lái / xe (Nội vùng)
               </button>
             </div>
           </div>
+
+          {/* Tùy chọn Ngắt Lạnh cho Xe Lạnh Tuyến Trục */}
+          {input.vehicleCategory === 'truck_reefer' && activeConnectionCategory === 'bac_nam_can_vung' && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-700 font-semibold">Chế độ máy lạnh:</span>
+              <div className="inline-flex rounded-xl bg-stone-100 p-1 border border-stone-200">
+                <button
+                  type="button"
+                  onClick={() => handleToggleCoolingOff(false)}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition ${
+                    !isReeferCoolingOff
+                      ? 'bg-cyan-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Bật lạnh tiêu chuẩn
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleToggleCoolingOff(true)}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition ${
+                    isReeferCoolingOff
+                      ? 'bg-rose-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Ngắt lạnh (Nhóm 5/6)
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* ============================================================== */}
-      {/* BƯỚC 2: CHỌN TRỌNG TẢI XE (KHÔNG THAY ĐỔI TÙY Ý - CHUẨN PHỤ LỤC 2) */}
+      {/* BƯỚC 3: CHỌN TRỌNG TẢI XE (CHUẨN 100% THEO PHỤ LỤC 1 & 2) */}
       {/* ============================================================== */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl">
-        <div className="flex items-center justify-between mb-2">
-          <label htmlFor={vehicleSelectId} className="text-sm font-bold text-white flex items-center gap-2">
-            <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs flex items-center justify-center">
-              2
+      {/* ============================================================== */}
+      {/* BƯỚC 3: CHỌN TRỌNG TẢI XE (CHUẨN 100% THEO PHỤ LỤC 1 & 2) */}
+      {/* ============================================================== */}
+      <div className="bg-white border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3.5">
+        <div className="flex items-center justify-between">
+          <label htmlFor={vehicleSelectId} className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <span className="w-6 h-6 rounded-lg bg-red-600 text-white font-bold text-xs flex items-center justify-center shadow-sm shadow-red-600/30">
+              3
             </span>
-            Chọn Trọng tải xe (Cố định chuẩn theo bảng giá)
+            Chọn Trọng tải xe (Kg)
           </label>
-          <span className="text-xs text-slate-400">Không thay đổi tùy ý</span>
+          <span className="text-xs text-red-600 font-semibold">
+            {availableVehicles.length} phương tiện khả dụng trong nhóm
+          </span>
         </div>
 
-        <div className="relative">
-          <select
-            id={vehicleSelectId}
-            value={input.vehicleId}
-            onChange={(e) => onChange({ ...input, vehicleId: e.target.value })}
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-3 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-500 appearance-none cursor-pointer pr-10"
-          >
-            {categoryVehicles.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.name} — {v.tonnageLabel} (Giá Min G₀: {formatCurrency(v.minPriceG0)})
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        {/* Vehicle Selection Chips / Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          {availableVehicles.map((v) => {
+            const isSelected = v.id === selectedVehicle.id;
+            return (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => onChange({ ...input, vehicleId: v.id })}
+                className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                  isSelected
+                    ? 'bg-red-50/70 border-red-500 text-slate-900 ring-1 ring-red-400 shadow-xs'
+                    : 'bg-[#FAF8F5] hover:bg-[#F3EFE6] border-stone-200 text-slate-700'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full mb-1.5">
+                  <span className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
+                    {v.category === 'truck_reefer' ? (
+                      <Snowflake className="w-4 h-4 text-cyan-600" />
+                    ) : (
+                      <Truck className="w-4 h-4 text-red-600" />
+                    )}
+                    {v.tonnageLabel}
+                  </span>
+                  {isSelected && <Check className="w-4 h-4 text-red-600" />}
+                </div>
+
+                <div className="space-y-1 text-[11px] text-slate-500">
+                  {v.kmStandard && (
+                    <div className="flex items-center justify-between">
+                      <span>KM tiêu chuẩn:</span>
+                      <span className="font-mono text-slate-700 font-semibold">{formatNumber(v.kmStandard, 0)} km</span>
+                    </div>
+                  )}
+                  {v.minPriceG0 > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span>Giá tối thiểu G₀:</span>
+                      <span className="font-mono text-red-700 font-semibold">{formatCurrency(v.minPriceG0)}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span>Hệ số bù dầu k:</span>
+                    <span className="font-mono text-slate-800 font-bold">k = {v.oilFactorK}</span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
 
+        {/* Selected Vehicle Spec Banner */}
         {selectedVehicle && (
-          <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-            <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 text-slate-400">
-              {selectedVehicle.description}
+          <div className="mt-3 p-3 rounded-xl bg-[#FAF8F5] border border-stone-200 text-xs text-slate-700 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <span className="text-slate-500">Xe đang chọn: </span>
+              <strong className="text-slate-900">{selectedVehicle.name}</strong> •{' '}
+              <span className="text-red-600 font-mono font-bold">Tải trọng: {selectedVehicle.tonnageLabel}</span> (Nhóm {selectedVehicle.weightClass} kg)
             </div>
-            <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800 flex items-center justify-between text-slate-300">
-              <span>Hệ số bù dầu theo Phụ lục 2:</span>
-              <span className="font-mono text-amber-400 font-bold">
-                k = {selectedVehicle.oilFactorK} ({selectedVehicle.tonnageKg < 8000 ? '<8000kg: 0.25' : selectedVehicle.tonnageKg <= 18000 ? '8001-18000kg: 0.3' : '>18000kg: 0.4'})
-              </span>
+            <div className="flex items-center gap-3">
+              <span>Định mức bù dầu: <strong className="text-red-600 font-mono">k = {selectedVehicle.oilFactorK}</strong></span>
+              {selectedVehicle.coolingFuelPerHour !== undefined && selectedVehicle.coolingFuelPerHour > 0 && (
+                <span>Định mức máy lạnh: <strong className="text-cyan-700 font-mono">{selectedVehicle.coolingFuelPerHour} lít/h</strong></span>
+              )}
             </div>
           </div>
         )}
       </div>
 
       {/* ============================================================== */}
-      {/* BƯỚC 3: CHỌN TUYẾN ĐƯỜNG */}
+      {/* BƯỚC 4: CHỌN TUYẾN ĐƯỜNG & CHIỀU KẾT NỐI */}
       {/* ============================================================== */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl">
-        <div className="flex items-center justify-between mb-3.5">
-          <label className="text-sm font-bold text-white flex items-center gap-2">
-            <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs flex items-center justify-center">
-              3
+      <div className="bg-white border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <span className="w-6 h-6 rounded-lg bg-red-600 text-white font-bold text-xs flex items-center justify-center shadow-sm shadow-red-600/30">
+              4
             </span>
-            Chọn Tuyến đường (Tỉnh xuất phát &amp; Tỉnh đến)
+            Chọn Tuyến đường &amp; Chiều kết nối
           </label>
-          <span className="text-xs text-slate-400">Bước 3/5</span>
+          <span className="text-xs text-slate-500">Xác định đơn giá tương ứng</span>
+        </div>
+
+        {/* Banner phân loại tuyến đường rõ ràng theo quy tắc */}
+        <div
+          className={`p-3.5 rounded-xl border text-xs space-y-1.5 ${
+            isNorthSouth
+              ? 'bg-red-50/70 border-red-200 text-red-950'
+              : 'bg-[#FAF8F5] border-stone-200 text-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between font-bold">
+            <span className="flex items-center gap-1.5">
+              <Compass className="w-4 h-4 text-red-600" />
+              {isNorthSouth ? 'TUYẾN BẮC - NAM' : 'TUYẾN CẬN VÙNG / NỘI VÙNG (BẮC-BẮC, TRUNG-TRUNG, NAM-NAM)'}
+            </span>
+            <span
+              className={`px-2.5 py-0.5 rounded text-[10px] uppercase font-mono font-bold ${
+                isNorthSouth ? 'bg-red-600 text-white' : 'bg-stone-200 text-slate-800'
+              }`}
+            >
+              {isNorthSouth ? 'Đơn giá Bắc - Nam' : 'Đơn giá Cận Vùng / Nội Vùng'}
+            </span>
+          </div>
+
+          <p className="text-slate-600 leading-relaxed text-[11px]">
+            {isNorthSouth ? (
+              <>
+                Kết nối giữa <strong className="text-slate-900">Miền Nam</strong> và{' '}
+                <strong className="text-slate-900">Miền Bắc</strong> ➔ Áp dụng cột{' '}
+                <strong className="text-red-700">Bắc - Nam ({input.direction === 'chieu_ra' ? 'Chiều ra' : input.direction === 'chieu_vao' ? 'Chiều Vào' : 'Hai chiều'})</strong> trong bảng giá.
+              </>
+            ) : (
+              <>
+                Tuyến <strong className="text-slate-900">Bắc ➔ Bắc, Trung ➔ Trung, Nam ➔ Nam</strong>, hoặc Cận Vùng (Bắc-Trung, Trung-Nam) ➔ Áp dụng{' '}
+                <strong className="text-red-700">Đơn giá Cận Vùng / Nội Vùng ({columnNameInSheet})</strong> theo đúng quy định.
+              </>
+            )}
+          </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           {/* Tỉnh Đi */}
           <div className="relative">
-            <label htmlFor={fromSelectId} className="block text-xs font-semibold text-slate-400 mb-1.5 flex items-center justify-between">
+            <label htmlFor={fromSelectId} className="block text-xs font-semibold text-slate-600 mb-1.5 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-rose-400" />
-                Điểm đi:
+                <MapPin className="w-3.5 h-3.5 text-rose-600" />
+                Điểm xuất phát:
               </span>
-              <span className="font-mono text-[11px] text-amber-400">
+              <span className="font-mono text-[11px] text-red-600 font-semibold">
                 Miền {fromProvince.region === 'Bac' ? 'Bắc' : fromProvince.region === 'Trung' ? 'Trung' : 'Nam'}
               </span>
             </label>
@@ -396,15 +623,15 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
                   setIsFromOpen(!isFromOpen);
                   setIsToOpen(false);
                 }}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-left text-sm font-bold text-white flex items-center justify-between hover:border-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full bg-white border border-stone-300 rounded-xl px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 flex items-center justify-between hover:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 shadow-xs"
               >
                 <span>{fromProvince.name}</span>
-                <ChevronDown className="w-4 h-4 text-slate-400" />
+                <ChevronDown className="w-4 h-4 text-slate-500" />
               </button>
 
               {isFromOpen && (
-                <div className="absolute left-0 right-0 top-full mt-1.5 bg-slate-850 border border-slate-700 rounded-xl shadow-2xl z-40 max-h-60 overflow-hidden flex flex-col">
-                  <div className="p-2 border-b border-slate-700 bg-slate-800">
+                <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-stone-200 rounded-xl shadow-2xl z-40 max-h-60 overflow-hidden flex flex-col">
+                  <div className="p-2 border-b border-stone-200 bg-stone-50">
                     <div className="relative">
                       <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                       <input
@@ -412,21 +639,21 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
                         placeholder="Tìm tỉnh thành đi..."
                         value={fromSearch}
                         onChange={(e) => setFromSearch(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                        className="w-full bg-white border border-stone-300 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-red-500"
                         autoFocus
                       />
                     </div>
                   </div>
-                  <div className="overflow-y-auto divide-y divide-slate-800 text-xs">
+                  <div className="overflow-y-auto divide-y divide-stone-100 text-xs">
                     {filteredFromProvinces.map((p) => (
                       <button
                         key={p.id}
                         type="button"
                         onClick={() => handleSelectProvince('from', p.id)}
-                        className="w-full px-3.5 py-2 text-left hover:bg-slate-800 flex items-center justify-between text-slate-200"
+                        className="w-full px-3.5 py-2 text-left hover:bg-stone-50 flex items-center justify-between text-slate-800"
                       >
                         <span className="font-medium">{p.name}</span>
-                        <span className="text-[10px] text-slate-400 font-mono">
+                        <span className="text-[10px] text-slate-500 font-mono">
                           {p.region === 'Bac' ? 'Miền Bắc' : p.region === 'Trung' ? 'Miền Trung' : 'Miền Nam'}
                         </span>
                       </button>
@@ -439,12 +666,12 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
 
           {/* Tỉnh Đến */}
           <div className="relative">
-            <label htmlFor={toSelectId} className="block text-xs font-semibold text-slate-400 mb-1.5 flex items-center justify-between">
+            <label htmlFor={toSelectId} className="block text-xs font-semibold text-slate-600 mb-1.5 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-                Điểm đến:
+                <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                Điểm giao hàng đến:
               </span>
-              <span className="font-mono text-[11px] text-amber-400">
+              <span className="font-mono text-[11px] text-red-600 font-semibold">
                 Miền {toProvince.region === 'Bac' ? 'Bắc' : toProvince.region === 'Trung' ? 'Trung' : 'Nam'}
               </span>
             </label>
@@ -456,15 +683,15 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
                   setIsToOpen(!isToOpen);
                   setIsFromOpen(false);
                 }}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-left text-sm font-bold text-white flex items-center justify-between hover:border-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full bg-white border border-stone-300 rounded-xl px-3.5 py-2.5 text-left text-sm font-bold text-slate-900 flex items-center justify-between hover:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 shadow-xs"
               >
                 <span>{toProvince.name}</span>
-                <ChevronDown className="w-4 h-4 text-slate-400" />
+                <ChevronDown className="w-4 h-4 text-slate-500" />
               </button>
 
               {isToOpen && (
-                <div className="absolute left-0 right-0 top-full mt-1.5 bg-slate-850 border border-slate-700 rounded-xl shadow-2xl z-40 max-h-60 overflow-hidden flex flex-col">
-                  <div className="p-2 border-b border-slate-700 bg-slate-800">
+                <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-stone-200 rounded-xl shadow-2xl z-40 max-h-60 overflow-hidden flex flex-col">
+                  <div className="p-2 border-b border-stone-200 bg-stone-50">
                     <div className="relative">
                       <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                       <input
@@ -472,21 +699,21 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
                         placeholder="Tìm tỉnh thành đến..."
                         value={toSearch}
                         onChange={(e) => setToSearch(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                        className="w-full bg-white border border-stone-300 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-red-500"
                         autoFocus
                       />
                     </div>
                   </div>
-                  <div className="overflow-y-auto divide-y divide-slate-800 text-xs">
+                  <div className="overflow-y-auto divide-y divide-stone-100 text-xs">
                     {filteredToProvinces.map((p) => (
                       <button
                         key={p.id}
                         type="button"
                         onClick={() => handleSelectProvince('to', p.id)}
-                        className="w-full px-3.5 py-2 text-left hover:bg-slate-800 flex items-center justify-between text-slate-200"
+                        className="w-full px-3.5 py-2 text-left hover:bg-stone-50 flex items-center justify-between text-slate-800"
                       >
                         <span className="font-medium">{p.name}</span>
-                        <span className="text-[10px] text-slate-400 font-mono">
+                        <span className="text-[10px] text-slate-500 font-mono">
                           {p.region === 'Bac' ? 'Miền Bắc' : p.region === 'Trung' ? 'Miền Trung' : 'Miền Nam'}
                         </span>
                       </button>
@@ -497,78 +724,25 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ============================================================== */}
-      {/* BƯỚC 4: CHỌN CHIỀU => ĐƯA RA ĐƠN GIÁ ĐÚNG THEO RULE CHỈ ĐỊNH */}
-      {/* ============================================================== */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-3.5">
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-bold text-white flex items-center gap-2">
-            <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs flex items-center justify-center">
-              4
-            </span>
-            Chọn Chiều &amp; Xác định Đơn giá đúng trong bảng
-          </label>
-          <span className="text-xs text-slate-400">Bước 4/5</span>
-        </div>
-
-        {/* Banner phân loại tuyến đường theo rule người dùng */}
-        <div
-          className={`p-3.5 rounded-xl border text-xs space-y-1.5 ${
-            isNorthSouth
-              ? 'bg-amber-950/20 border-amber-500/40 text-amber-200'
-              : 'bg-blue-950/20 border-blue-500/40 text-blue-200'
-          }`}
-        >
-          <div className="flex items-center justify-between font-bold">
-            <span className="flex items-center gap-1.5">
-              <Compass className="w-4 h-4 text-amber-400" />
-              {isNorthSouth ? 'TUYẾN BẮC - NAM' : 'TUYẾN CẬN VÙNG / NỘI VÙNG'}
-            </span>
-            <span
-              className={`px-2 py-0.5 rounded text-[10px] uppercase font-mono font-bold ${
-                isNorthSouth ? 'bg-amber-500 text-slate-950' : 'bg-blue-500 text-slate-950'
-              }`}
-            >
-              {isNorthSouth ? 'Đơn giá Bắc - Nam' : 'Đơn giá Cận vùng'}
-            </span>
-          </div>
-
-          <p className="text-slate-300 leading-relaxed text-[11px]">
-            {isNorthSouth ? (
-              <>
-                Kết nối giữa <strong className="text-white">Miền Nam</strong> và{' '}
-                <strong className="text-white">Miền Bắc</strong> ➔ Áp dụng cột{' '}
-                <strong className="text-amber-300">Bắc - Nam ({input.direction === 'chieu_ra' ? 'Chiều ra' : input.direction === 'chieu_vao' ? 'Chiều Vào' : 'Hai chiều'})</strong> trong bảng.
-              </>
-            ) : (
-              <>
-                Tuyến giữa <strong className="text-white">Bắc ➔ Trung, Trung ➔ Nam, Nam ➔ Trung, Trung ➔ Bắc</strong> hoặc nội miền ➔ Áp dụng cột{' '}
-                <strong className="text-blue-300">{columnNameInSheet}</strong> trong bảng {input.vehicleCategory === 'truck_reefer' ? 'Phụ lục 2 (Xe Lạnh)' : 'Phụ lục 1 (Xe Nóng)'}.
-              </>
-            )}
-          </p>
-        </div>
-
-        {/* Lựa chọn chiều */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        {/* Lựa chọn Chiều (Chiều ra / Chiều vào / Toàn trình) */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
           {/* Chiều ra */}
           <button
             type="button"
             onClick={() => onChange({ ...input, direction: 'chieu_ra' })}
             className={`p-3 rounded-xl border text-left transition-all ${
               input.direction === 'chieu_ra'
-                ? 'bg-amber-500/15 border-amber-500 text-white font-medium ring-1 ring-amber-500/30'
-                : 'bg-slate-850 hover:bg-slate-800 border-slate-750 text-slate-300'
+                ? 'bg-red-50/70 border-red-500 text-slate-900 font-medium ring-1 ring-red-400'
+                : 'bg-[#FAF8F5] hover:bg-[#F3EFE6] border-stone-200 text-slate-700'
             }`}
           >
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-bold text-white">Chiều ra (Nam ➔ Bắc / Đi)</span>
-              {input.direction === 'chieu_ra' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+              <span className="text-xs font-bold text-slate-900">Chiều ra (Nam ➔ Bắc / Chiều đi)</span>
+              {input.direction === 'chieu_ra' && <Check className="w-3.5 h-3.5 text-red-600" />}
             </div>
-            <div className="text-[10px] text-slate-400">
-              {isNorthSouth ? 'Cột: Bắc - Nam Chiều ra' : 'Cột: Đơn giá chiều đi'}
+            <div className="text-[10px] text-slate-500">
+              {activeConnectionCategory === 'bac_nam_can_vung' || isNorthSouth ? 'Cột: Bắc - Nam Chiều ra' : 'Cột: Đơn giá chiều đi'}
             </div>
           </button>
 
@@ -578,16 +752,16 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
             onClick={() => onChange({ ...input, direction: 'chieu_vao' })}
             className={`p-3 rounded-xl border text-left transition-all ${
               input.direction === 'chieu_vao'
-                ? 'bg-amber-500/15 border-amber-500 text-white font-medium ring-1 ring-amber-500/30'
-                : 'bg-slate-850 hover:bg-slate-800 border-slate-750 text-slate-300'
+                ? 'bg-red-50/70 border-red-500 text-slate-900 font-medium ring-1 ring-red-400'
+                : 'bg-[#FAF8F5] hover:bg-[#F3EFE6] border-stone-200 text-slate-700'
             }`}
           >
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-bold text-white">Chiều vào (Bắc ➔ Nam / Về)</span>
-              {input.direction === 'chieu_vao' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+              <span className="text-xs font-bold text-slate-900">Chiều vào (Bắc ➔ Nam / Chiều về)</span>
+              {input.direction === 'chieu_vao' && <Check className="w-3.5 h-3.5 text-red-600" />}
             </div>
-            <div className="text-[10px] text-slate-400">
-              {isNorthSouth ? 'Cột: Bắc - Nam Chiều Vào' : 'Cột: Đơn giá chiều về'}
+            <div className="text-[10px] text-slate-500">
+              {activeConnectionCategory === 'bac_nam_can_vung' || isNorthSouth ? 'Cột: Bắc - Nam Chiều vào' : 'Cột: Đơn giá chiều về'}
             </div>
           </button>
 
@@ -597,39 +771,39 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
             onClick={() => onChange({ ...input, direction: 'toan_trinh' })}
             className={`p-3 rounded-xl border text-left transition-all ${
               input.direction === 'toan_trinh'
-                ? 'bg-amber-500/15 border-amber-500 text-white font-medium ring-1 ring-amber-500/30'
-                : 'bg-slate-850 hover:bg-slate-800 border-slate-750 text-slate-300'
+                ? 'bg-red-50/70 border-red-500 text-slate-900 font-medium ring-1 ring-red-400'
+                : 'bg-[#FAF8F5] hover:bg-[#F3EFE6] border-stone-200 text-slate-700'
             }`}
           >
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-bold text-white">Toàn trình (2 Chiều)</span>
-              {input.direction === 'toan_trinh' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+              <span className="text-xs font-bold text-slate-900">Toàn trình (2 Chiều)</span>
+              {input.direction === 'toan_trinh' && <Check className="w-3.5 h-3.5 text-red-600" />}
             </div>
-            <div className="text-[10px] text-slate-400">
-              {isNorthSouth ? 'Cột: Bắc - Nam Hai chiều' : 'Cột: Giá hai chiều'}
+            <div className="text-[10px] text-slate-500">
+              {activeConnectionCategory === 'bac_nam_can_vung' || isNorthSouth ? 'Cột: Bắc - Nam Hai chiều' : 'Cột: Giá hai chiều'}
             </div>
           </button>
         </div>
 
-        {/* Bảng chốt đơn giá chuẩn trước khi nhân Km */}
-        <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+        {/* Khung chốt đơn giá tương ứng */}
+        <div className="p-3.5 rounded-xl bg-[#FAF8F5] border border-stone-200 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div>
-            <div className="text-slate-400 text-[11px]">Đơn giá cơ sở gốc ({columnNameInSheet}):</div>
-            <div className="text-sm font-bold text-slate-200">
+            <div className="text-slate-500 text-[11px]">Đơn giá cơ sở gốc ({columnNameInSheet}):</div>
+            <div className="text-sm font-bold text-slate-800">
               {formatCurrency(currentRateG0)}/km
             </div>
           </div>
 
-          <div className="text-right sm:text-left">
-            <div className="text-slate-400 text-[11px]">Bù giá dầu PVOIL ({formatNumber(currentDieselPrice, 0)}đ/lít):</div>
-            <div className="text-sm font-bold text-amber-400">
+          <div>
+            <div className="text-slate-500 text-[11px]">Bù giá dầu PVOIL ({formatNumber(currentDieselPrice, 0)}đ/lít):</div>
+            <div className="text-sm font-bold text-red-600">
               +{formatNumber(oilAdjustmentRate * 100, 2)}% (k = {selectedVehicle.oilFactorK})
             </div>
           </div>
 
-          <div className="w-full sm:w-auto p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between sm:justify-start gap-3">
-            <span className="text-amber-300 font-semibold text-xs">👉 Đơn giá chuẩn để nhân Km (G₁):</span>
-            <span className="text-base font-extrabold text-amber-400">
+          <div className="w-full sm:w-auto p-2 px-3 rounded-xl bg-red-50 border border-red-200 flex items-center justify-between sm:justify-start gap-3 shadow-xs">
+            <span className="text-red-700 font-semibold text-xs">👉 Đơn giá chuẩn để nhân Km (G₁):</span>
+            <span className="text-base font-extrabold text-red-700">
               {formatCurrency(currentRateG1)}/km
             </span>
           </div>
@@ -637,148 +811,116 @@ export const CalculatorForm: React.FC<CalculatorFormProps> = ({
       </div>
 
       {/* ============================================================== */}
-      {/* BƯỚC 5: NHẬP SỐ KM (NHÂN VỚI ĐƠN GIÁ ĐÃ XÁC ĐỊNH) */}
+      {/* BƯỚC 5: NHẬP SỐ KM & CÁC CHI PHÍ PHỤ */}
       {/* ============================================================== */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-3">
+      <div className="bg-white border border-stone-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
-          <label htmlFor={kmInputId} className="text-sm font-bold text-white flex items-center gap-2">
-            <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs flex items-center justify-center">
+          <label htmlFor={kmInputId} className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <span className="w-6 h-6 rounded-lg bg-red-600 text-white font-bold text-xs flex items-center justify-center shadow-sm shadow-red-600/30">
               5
             </span>
-            Nhập Cự ly Km (Nhân với đơn giá chốt)
+            Nhập Cự ly Km &amp; Thông số bổ sung
           </label>
-          <span className="text-xs text-slate-400">Bước 5/5</span>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="relative flex-1">
-            <input
-              id={kmInputId}
-              type="number"
-              min="1"
-              max="5000"
-              value={input.km || ''}
-              onChange={(e) => onChange({ ...input, km: Math.max(0, parseFloat(e.target.value) || 0) })}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-xl font-black text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-              placeholder="Nhập số km..."
-            />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
-              Km
-            </span>
-          </div>
-
-          {/* Nút km nhanh */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {[35, 75, 120, 350, 770, 960, 1720].map((k) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => onChange({ ...input, km: k })}
-                className={`px-3 py-2 rounded-lg text-xs font-semibold border transition ${
-                  input.km === k
-                    ? 'bg-amber-500 text-slate-950 border-amber-500 font-bold'
-                    : 'bg-slate-800 text-slate-300 hover:text-white border-slate-700 hover:bg-slate-750'
-                }`}
-              >
-                {k} km
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Cảnh báo 75km */}
-        {input.km <= MIN_KM_THRESHOLD && input.km > 0 ? (
-          <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-500/40 text-amber-200 text-xs flex items-start gap-2.5">
-            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-            <div>
-              <strong className="text-white">Cự ly {input.km}km (≤ 75km):</strong> Áp dụng{' '}
-              <strong className="text-amber-300">Giá tối thiểu {formatCurrency(minPriceG1)}</strong> theo đúng quy định {input.vehicleCategory === 'truck_reefer' ? 'Phụ lục 2' : 'Phụ lục 1'}.
-            </div>
-          </div>
-        ) : (
-          <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-slate-400 text-xs flex items-center justify-between">
-            <span>Tính cước: {input.km} km x {formatCurrency(currentRateG1)}/km</span>
-            <span className="font-bold text-white text-sm">
-              = {formatCurrency(input.km * currentRateG1)}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* CÁC TRƯỜNG PHỤ PHÍ NẾU CÓ */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-3">
-        <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-          Phụ phí máy lạnh, lưu ca &amp; Thuế VAT
+          <span className="text-xs text-slate-500">Tính toán cước tổng</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-          {/* Phí máy lạnh nếu xe lạnh */}
-          {input.vehicleCategory === 'truck_reefer' && (
-            <div className="p-3.5 rounded-xl bg-cyan-950/20 border border-cyan-500/30 space-y-2">
-              <label htmlFor={coolingHoursInputId} className="block text-xs font-semibold text-cyan-300 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5" />
-                Thời gian chạy lạnh (giờ):
-              </label>
+          {/* Cự ly Km */}
+          <div>
+            <label htmlFor={kmInputId} className="block text-xs font-semibold text-slate-600 mb-1.5 flex items-center justify-between">
+              <span>Cự ly thực tế (Km):</span>
+              {input.km <= MIN_KM_THRESHOLD && input.km > 0 && selectedVehicle.minPriceG0 > 0 && (
+                <span className="text-red-600 text-[10px] font-bold">≤ 75km (Áp dụng Giá Min)</span>
+              )}
+            </label>
+            <div className="relative">
+              <input
+                id={kmInputId}
+                type="number"
+                min="1"
+                max="5000"
+                value={input.km || ''}
+                onChange={(e) => onChange({ ...input, km: Number(e.target.value) || 0 })}
+                className="w-full bg-white border border-stone-300 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500 pr-12 font-mono shadow-xs"
+                placeholder="Nhập km..."
+              />
+              <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 pointer-events-none">
+                km
+              </span>
+            </div>
+          </div>
+
+          {/* Giờ chạy lạnh (nếu là xe lạnh) */}
+          <div>
+            <label htmlFor={coolingHoursInputId} className="block text-xs font-semibold text-slate-600 mb-1.5 flex items-center justify-between">
+              <span>Thời gian chạy lạnh (h):</span>
+              <span className="text-cyan-700 text-[10px]">
+                {input.vehicleCategory === 'truck_reefer' ? `${selectedVehicle.coolingFuelPerHour || 2.5} lít/h` : 'Xe nóng không áp dụng'}
+              </span>
+            </label>
+            <div className="relative">
               <input
                 id={coolingHoursInputId}
                 type="number"
                 min="0"
-                step="0.5"
-                value={input.coolingHours || 0}
-                onChange={(e) =>
-                  onChange({ ...input, coolingHours: Math.max(0, parseFloat(e.target.value) || 0) })
-                }
-                className="w-full bg-slate-800 border border-cyan-500/40 rounded-lg px-3 py-1.5 text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                max="120"
+                disabled={input.vehicleCategory !== 'truck_reefer' || isReeferCoolingOff}
+                value={input.coolingHours ?? 0}
+                onChange={(e) => onChange({ ...input, coolingHours: Number(e.target.value) || 0 })}
+                className="w-full bg-white border border-stone-300 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-40 disabled:cursor-not-allowed pr-12 font-mono shadow-xs"
+                placeholder="0"
               />
-              <div className="text-[10px] text-cyan-400/80">
-                Định mức: {selectedVehicle.coolingFuelPerHour || 2.5}L/h x {formatCurrency(currentDieselPrice)}
-              </div>
-            </div>
-          )}
-
-          {/* Phí lưu ca theo Phụ lục 2 */}
-          <div className="p-3.5 rounded-xl bg-slate-850 border border-slate-750 space-y-2">
-            <label htmlFor={retentionDaysInputId} className="block text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-amber-400" />
-              Số ngày lưu ca xe:
-            </label>
-            <input
-              id={retentionDaysInputId}
-              type="number"
-              min="0"
-              value={input.retentionDays || 0}
-              onChange={(e) =>
-                onChange({ ...input, retentionDays: Math.max(0, parseInt(e.target.value) || 0) })
-              }
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
-            />
-            <div className="text-[10px] text-slate-400">
-              Định mức: {selectedVehicle.tonnageKg <= 5100 ? '>= 1 ngày' : selectedVehicle.tonnageKg <= 13000 ? '>= 3 ngày' : selectedVehicle.tonnageKg <= 18000 ? '>= 4 ngày' : '>= 5 ngày'}
+              <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 pointer-events-none">
+                giờ
+              </span>
             </div>
           </div>
 
-          {/* Thuế VAT */}
-          <div className="p-3.5 rounded-xl bg-slate-850 border border-slate-750 space-y-2">
-            <label className="block text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-              <Percent className="w-3.5 h-3.5 text-emerald-400" />
-              Thuế suất GTGT (VAT):
+          {/* Số ngày lưu ca */}
+          <div>
+            <label htmlFor={retentionDaysInputId} className="block text-xs font-semibold text-slate-600 mb-1.5 flex items-center justify-between">
+              <span>Số ngày lưu ca xe:</span>
+              <span className="text-slate-400 text-[10px]">Theo trọng tải xe</span>
             </label>
-            <div className="grid grid-cols-3 gap-1.5">
-              {[0, 8, 10].map((rate) => (
-                <button
-                  key={rate}
-                  type="button"
-                  onClick={() => onChange({ ...input, vatRate: rate })}
-                  className={`py-1.5 text-xs font-bold rounded-lg border transition ${
-                    input.vatRate === rate
-                      ? 'bg-emerald-500 text-slate-950 border-emerald-500'
-                      : 'bg-slate-800 text-slate-300 hover:text-white border-slate-700'
-                  }`}
-                >
-                  {rate}%
-                </button>
-              ))}
+            <div className="relative">
+              <input
+                id={retentionDaysInputId}
+                type="number"
+                min="0"
+                max="30"
+                value={input.retentionDays ?? 0}
+                onChange={(e) => onChange({ ...input, retentionDays: Number(e.target.value) || 0 })}
+                className="w-full bg-white border border-stone-300 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500 pr-12 font-mono shadow-xs"
+                placeholder="0"
+              />
+              <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 pointer-events-none">
+                ngày
+              </span>
             </div>
+          </div>
+        </div>
+
+        {/* VAT Rate Radio */}
+        <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 text-xs text-slate-700">
+          <div className="flex items-center gap-2">
+            <Percent className="w-3.5 h-3.5 text-red-600" />
+            <span>Thuế suất GTGT (VAT):</span>
+          </div>
+          <div className="inline-flex rounded-xl bg-stone-100 p-1 border border-stone-200">
+            {[0, 8, 10].map((rate) => (
+              <button
+                key={rate}
+                type="button"
+                onClick={() => onChange({ ...input, vatRate: rate })}
+                className={`px-3.5 py-1 font-bold rounded-lg transition text-xs ${
+                  input.vatRate === rate
+                    ? 'bg-red-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {rate}% VAT
+              </button>
+            ))}
           </div>
         </div>
       </div>

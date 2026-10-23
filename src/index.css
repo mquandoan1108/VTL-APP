@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+:root {
+  --viettel-red: #EE0033;
+  --viettel-red-hover: #D9002E;
+  --viettel-red-dark: #A60023;
+  --viettel-red-glow: rgba(238, 0, 51, 0.25);
+}
+
 @layer utilities {
   @keyframes fadeIn {
     from {
@@ -14,6 +21,22 @@
 
   .animate-fade-in {
     animation: fadeIn 0.2s ease-out forwards;
+  }
+
+  .bg-viettel-red {
+    background-color: #EE0033;
+  }
+
+  .text-viettel-red {
+    color: #EE0033;
+  }
+
+  .border-viettel-red {
+    border-color: #EE0033;
+  }
+
+  .shadow-viettel {
+    box-shadow: 0 10px 25px -5px rgba(238, 0, 51, 0.3), 0 8px 10px -6px rgba(238, 0, 51, 0.2);
   }
 }
 

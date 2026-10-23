@@ -192,13 +192,31 @@ export function detectDirectionAndConnection(
       connectionType = 'lien_tinh_vung';
       direction = 'chieu_vao';
       routeDescription = `Cận Vùng: Trung vào Nam (${fromProv.name} [Trung] ➔ ${toProv.name} [Nam])`;
-    } else {
-      connectionType = 'lien_tinh_vung';
-      // Cùng miền: Bắc-Bắc, Trung-Trung, Nam-Nam
+    } else if (fromRegion === 'Bac' && toRegion === 'Bac') {
+      connectionType = 'noi_tinh_vung';
       const fromIndex = NORTH_TO_SOUTH_ORDER.indexOf(fromId);
       const toIndex = NORTH_TO_SOUTH_ORDER.indexOf(toId);
       direction = fromIndex > toIndex ? 'chieu_ra' : 'chieu_vao';
-      routeDescription = `Nội Vùng / Cận Vùng (${fromProv.name} ➔ ${toProv.name})`;
+      routeDescription = `Đơn giá Cận Vùng / Nội Vùng: Bắc ➔ Bắc (${fromProv.name} ➔ ${toProv.name})`;
+    } else if (fromRegion === 'Trung' && toRegion === 'Trung') {
+      connectionType = 'noi_tinh_vung';
+      const fromIndex = NORTH_TO_SOUTH_ORDER.indexOf(fromId);
+      const toIndex = NORTH_TO_SOUTH_ORDER.indexOf(toId);
+      direction = fromIndex > toIndex ? 'chieu_ra' : 'chieu_vao';
+      routeDescription = `Đơn giá Cận Vùng / Nội Vùng: Trung ➔ Trung (${fromProv.name} ➔ ${toProv.name})`;
+    } else if (fromRegion === 'Nam' && toRegion === 'Nam') {
+      connectionType = 'noi_tinh_vung';
+      const fromIndex = NORTH_TO_SOUTH_ORDER.indexOf(fromId);
+      const toIndex = NORTH_TO_SOUTH_ORDER.indexOf(toId);
+      direction = fromIndex > toIndex ? 'chieu_ra' : 'chieu_vao';
+      routeDescription = `Đơn giá Cận Vùng / Nội Vùng: Nam ➔ Nam (${fromProv.name} ➔ ${toProv.name})`;
+    } else {
+      connectionType = 'lien_tinh_vung';
+      // Cùng miền hoặc liền kề
+      const fromIndex = NORTH_TO_SOUTH_ORDER.indexOf(fromId);
+      const toIndex = NORTH_TO_SOUTH_ORDER.indexOf(toId);
+      direction = fromIndex > toIndex ? 'chieu_ra' : 'chieu_vao';
+      routeDescription = `Đơn giá Cận Vùng / Nội Vùng (${fromProv.name} ➔ ${toProv.name})`;
     }
   }
 

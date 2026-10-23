@@ -609,8 +609,8 @@ export const VEHICLE_OPTIONS: VehicleOption[] = [
     nearRegionTwoWayG0: 18936,
     nearRegionOutG0: 22724,
     nearRegionInG0: 15149,
-    northSouthOutG0: 16588,
-    northSouthInG0: 11059,
+    northSouthOutG0: 22724,
+    northSouthInG0: 15149,
     northSouthTwoWayG0: 18936,
     oilFactorK: 0.25,
     coolingFuelPerHour: 2.8,
@@ -631,8 +631,8 @@ export const VEHICLE_OPTIONS: VehicleOption[] = [
     nearRegionTwoWayG0: 21246,
     nearRegionOutG0: 25496,
     nearRegionInG0: 16997,
-    northSouthOutG0: 18612,
-    northSouthInG0: 12408,
+    northSouthOutG0: 25496,
+    northSouthInG0: 16997,
     northSouthTwoWayG0: 21246,
     oilFactorK: 0.25,
     coolingFuelPerHour: 3.5,
@@ -655,8 +655,8 @@ export const VEHICLE_OPTIONS: VehicleOption[] = [
     nearRegionTwoWayG0: 15385,
     nearRegionOutG0: 18462,
     nearRegionInG0: 12308,
-    northSouthOutG0: 13477,
-    northSouthInG0: 8985,
+    northSouthOutG0: 18462,
+    northSouthInG0: 12308,
     northSouthTwoWayG0: 15385,
     oilFactorK: 0.25,
     coolingFuelPerHour: 2.0,
@@ -677,8 +677,8 @@ export const VEHICLE_OPTIONS: VehicleOption[] = [
     nearRegionTwoWayG0: 16275,
     nearRegionOutG0: 19530,
     nearRegionInG0: 13020,
-    northSouthOutG0: 14257,
-    northSouthInG0: 9504,
+    northSouthOutG0: 19530,
+    northSouthInG0: 13020,
     northSouthTwoWayG0: 16275,
     oilFactorK: 0.25,
     coolingFuelPerHour: 2.8,
@@ -699,8 +699,8 @@ export const VEHICLE_OPTIONS: VehicleOption[] = [
     nearRegionTwoWayG0: 18718,
     nearRegionOutG0: 22461,
     nearRegionInG0: 14974,
-    northSouthOutG0: 16397,
-    northSouthInG0: 10931,
+    northSouthOutG0: 22461,
+    northSouthInG0: 14974,
     northSouthTwoWayG0: 18718,
     oilFactorK: 0.25,
     coolingFuelPerHour: 3.5,
@@ -937,8 +937,8 @@ export const VEHICLE_OPTIONS: VehicleOption[] = [
     nearRegionTwoWayG0: 18936,
     nearRegionOutG0: 22724,
     nearRegionInG0: 15149,
-    northSouthOutG0: 16588,
-    northSouthInG0: 11059,
+    northSouthOutG0: 22724,
+    northSouthInG0: 15149,
     northSouthTwoWayG0: 18936,
     oilFactorK: 0.25,
     coolingFuelPerHour: 2.8,
@@ -959,8 +959,8 @@ export const VEHICLE_OPTIONS: VehicleOption[] = [
     nearRegionTwoWayG0: 15385,
     nearRegionOutG0: 18462,
     nearRegionInG0: 12308,
-    northSouthOutG0: 13477,
-    northSouthInG0: 8985,
+    northSouthOutG0: 18462,
+    northSouthInG0: 12308,
     northSouthTwoWayG0: 15385,
     oilFactorK: 0.25,
     coolingFuelPerHour: 2.0,
@@ -981,8 +981,8 @@ export const VEHICLE_OPTIONS: VehicleOption[] = [
     nearRegionTwoWayG0: 16275,
     nearRegionOutG0: 19530,
     nearRegionInG0: 13020,
-    northSouthOutG0: 14257,
-    northSouthInG0: 9504,
+    northSouthOutG0: 19530,
+    northSouthInG0: 13020,
     northSouthTwoWayG0: 16275,
     oilFactorK: 0.25,
     coolingFuelPerHour: 2.8,
@@ -1121,11 +1121,22 @@ export const CONNECTION_TYPE_LABELS: Record<string, { label: string; sub: string
   },
 };
 
-export const STORAGE_CUSTOM_VEHICLES_KEY = 'vt_custom_vehicle_options_v2';
+export const STORAGE_CUSTOM_VEHICLES_KEY = 'vt_custom_vehicle_options_v4_phuluc2';
 
 export function getEffectiveVehicleOptions(): VehicleOption[] {
   if (typeof window === 'undefined') return VEHICLE_OPTIONS;
   try {
+    // Purge outdated caches from prior versions to ensure latest official pricing is loaded
+    if (localStorage.getItem('vt_custom_vehicle_options_v3')) {
+      localStorage.removeItem('vt_custom_vehicle_options_v3');
+    }
+    if (localStorage.getItem('vt_custom_vehicle_options_v2')) {
+      localStorage.removeItem('vt_custom_vehicle_options_v2');
+    }
+    if (localStorage.getItem('vt_custom_vehicle_options_v1')) {
+      localStorage.removeItem('vt_custom_vehicle_options_v1');
+    }
+
     const raw = localStorage.getItem(STORAGE_CUSTOM_VEHICLES_KEY);
     if (!raw) return VEHICLE_OPTIONS;
     const custom: VehicleOption[] = JSON.parse(raw);
@@ -1152,8 +1163,41 @@ export function resetEffectiveVehicleOptions(): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(STORAGE_CUSTOM_VEHICLES_KEY);
+    localStorage.removeItem('vt_custom_vehicle_options_v3');
+    localStorage.removeItem('vt_custom_vehicle_options_v2');
     localStorage.removeItem('vt_custom_vehicle_options_v1');
   } catch (e) {
     console.error('Failed to reset vehicle options', e);
   }
+}
+
+/**
+ * Lọc danh sách phương tiện theo tiêu chí bảng giá
+ */
+export function getVehiclesByFilters(
+  vehicles: VehicleOption[],
+  category: VehicleCategory,
+  connectionCategory: ConnectionCategory,
+  driverCount: 1 | 2,
+  isReeferCoolingOff = false
+): VehicleOption[] {
+  const cleanList = vehicles.filter(
+    (v) => !['dry_2500kg', 'dry_5000kg', 'dry_8000kg', 'dry_28000kg', 'reefer_2d_2500kg', 'reefer_2d_5000kg', 'reefer_1d_2500kg', 'reefer_1d_5000kg', 'reefer_2d_28000kg', 'dry_2d_2500kg', 'dry_1d_2500kg'].includes(v.id)
+  );
+
+  return cleanList.filter((v) => {
+    if (v.category !== category) return false;
+    if (v.connectionCategory !== connectionCategory) return false;
+    if (v.driverCount !== driverCount) return false;
+
+    if (category === 'truck_reefer' && connectionCategory === 'bac_nam_can_vung') {
+      if (isReeferCoolingOff) {
+        return v.specialType === 'ngat_lanh';
+      } else {
+        return v.specialType !== 'ngat_lanh';
+      }
+    }
+
+    return true;
+  });
 }

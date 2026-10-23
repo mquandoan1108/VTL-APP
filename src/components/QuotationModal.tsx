@@ -38,24 +38,24 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-3xl my-8 shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
+      <div className="bg-white border border-stone-200 rounded-2xl w-full max-w-3xl my-8 shadow-2xl overflow-hidden flex flex-col">
         {/* Modal Controls Bar */}
-        <div className="p-4 bg-slate-850 border-b border-slate-700 flex items-center justify-between no-print">
-          <div className="font-bold text-white text-sm">
+        <div className="p-4 bg-[#FAF8F5] border-b border-stone-200 flex items-center justify-between no-print">
+          <div className="font-bold text-slate-900 text-sm">
             Mẫu Giấy Báo Giá Vận Chuyển Viettel Logistics
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shadow"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EE0033] hover:bg-red-700 text-white font-bold text-xs transition shadow-sm"
             >
               <Printer className="w-4 h-4" />
               <span>In Báo Giá</span>
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white rounded-lg transition"
+              className="p-1.5 text-stone-400 hover:text-slate-700 hover:bg-stone-100 rounded-lg transition"
             >
               <X className="w-5 h-5" />
             </button>
@@ -124,7 +124,7 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
                 <span className="text-slate-500">Cự ly vận chuyển: </span>
                 <strong className="text-slate-900">{result.km} Km</strong>
                 {result.isUnder75Km && (
-                  <span className="ml-1 text-amber-700 font-semibold">(≤ 75km: Áp dụng giá tối thiểu)</span>
+                  <span className="ml-1 text-red-700 font-semibold">(≤ 75km: Áp dụng giá tối thiểu)</span>
                 )}
               </div>
               <div>
@@ -141,12 +141,12 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
           </div>
 
           {/* Section 2: Fuel Escalation Formula */}
-          <div className="mb-6 bg-amber-50/50 p-4 rounded-lg border border-amber-200 text-xs">
-            <div className="font-bold uppercase text-amber-900 mb-2 border-b border-amber-200 pb-1">
+          <div className="mb-6 bg-red-50/50 p-4 rounded-lg border border-red-200 text-xs">
+            <div className="font-bold uppercase text-red-900 mb-2 border-b border-red-200 pb-1">
               2. CÔNG THỨC ĐIỀU CHỈNH BIẾN ĐỘNG XĂNG DẦU (THEO VĂN BẢN)
             </div>
             <div className="space-y-1.5 text-slate-700">
-              <div className="font-mono text-[11px] bg-white p-2 rounded border border-amber-200 text-slate-900">
+              <div className="font-mono text-[11px] bg-white p-2 rounded border border-red-200 text-slate-900">
                 G₁ = G₀ ± G₀ * {result.effectiveOilFactorK} * Tỷ lệ tăng giảm xăng dầu (với xe có tải trọng từ 18001kg trở lên)
               </div>
               <div className="grid grid-cols-2 gap-2 pt-1">
@@ -257,15 +257,16 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
           </div>
 
           {/* Notes */}
-          <div className="mb-8 text-[11px] text-slate-600 space-y-1">
+          <div className="mb-6 text-[11px] text-slate-600 space-y-1">
             <div className="font-bold text-slate-700">Ghi chú &amp; Điều khoản:</div>
             <div>- Đơn giá trên được lập tại thời điểm giá dầu Diezen cơ sở = 21.860đ/lít.</div>
+            <div>- Tuyến Bắc - Bắc, Trung - Trung, Nam - Nam áp dụng Đơn giá Cận Vùng / Nội Vùng theo quy định.</div>
             <div>- Với cự ly dưới 75km, giá cước tối thiểu được áp dụng theo đúng quy định tại {result.vehicle.category === 'truck_reefer' ? 'Phụ lục 2' : 'Phụ lục 1'}.</div>
             <div>- Trong trường hợp nhà nước điều chỉnh giá xăng dầu, hai bên sẽ thực hiện điều chỉnh theo công thức tỷ lệ bù trừ.</div>
           </div>
 
           {/* Signatures */}
-          <div className="grid grid-cols-2 text-center text-xs mt-10 pt-4 border-t border-slate-300">
+          <div className="grid grid-cols-2 text-center text-xs mt-8 pt-4 border-t border-slate-300">
             <div>
               <div className="font-bold uppercase text-slate-800">NGƯỜI LẬP BIỂU</div>
               <div className="text-[11px] text-slate-500 italic mt-0.5">(Ký và ghi rõ họ tên)</div>
@@ -280,20 +281,22 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 bg-slate-850 border-t border-slate-700 flex justify-end gap-2 no-print">
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition"
-          >
-            <Printer className="w-4 h-4" />
-            <span>In Bản Báo Giá Này</span>
-          </button>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition"
-          >
-            Đóng
-          </button>
+        <div className="p-4 bg-[#FAF8F5] border-t border-stone-200 flex items-center justify-end no-print">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#EE0033] hover:bg-red-700 text-white font-bold text-xs transition shadow-sm"
+            >
+              <Printer className="w-4 h-4" />
+              <span>In Bản Báo Giá Này</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-slate-800 font-semibold text-xs transition"
+            >
+              Đóng
+            </button>
+          </div>
         </div>
       </div>
     </div>

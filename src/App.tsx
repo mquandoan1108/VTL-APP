@@ -7,8 +7,8 @@ import { PvoilApiChecker } from './components/PvoilApiChecker';
 import { VehicleComparisonModal } from './components/VehicleComparisonModal';
 import { QuotationModal } from './components/QuotationModal';
 import { HistoryDrawer, HistoryItem } from './components/HistoryDrawer';
-import { PhuLuc1EditorModal } from './components/PhuLuc1EditorModal';
-import { CalculationInput, VehicleOption } from './types/logistics';
+import { PhuLucViewerModal } from './components/PhuLucViewerModal';
+import { CalculationInput, VehicleOption, VehicleCategory } from './types/logistics';
 import {
   BASE_DIESEL_PRICE,
   VEHICLE_OPTIONS,
@@ -24,17 +24,20 @@ import {
   CheckCircle2,
   HelpCircle,
   ShieldCheck,
+  Truck,
+  Snowflake,
 } from 'lucide-react';
 
 export default function App() {
-  // Vehicle options state (customizable via Phụ lục 1 editor)
+  // Vehicle options state (customizable via Phụ lục 1 & 2 modal)
   const [vehicles, setVehicles] = useState<VehicleOption[]>(() => getEffectiveVehicleOptions());
 
   // Input state
   const [input, setInput] = useState<CalculationInput>({
     vehicleCategory: 'truck_reefer',
-    vehicleId: 'reefer_2d_2500kg', // Phụ lục 2 Viettel Logistics
+    vehicleId: 'reefer_2d_bn_28000kg', // Phụ lục 2 Viettel Logistics - Tuyến Trục 28 tấn 2 lái
     driverCount: 2,
+    connectionCategory: 'bac_nam_can_vung',
     connectionType: 'truc_bac_nam',
     direction: 'chieu_ra',
     fromProvinceId: 'SG',
@@ -54,7 +57,8 @@ export default function App() {
   const [isComparisonOpen, setIsComparisonOpen] = useState(false);
   const [isQuotationOpen, setIsQuotationOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isPhuLuc1Open, setIsPhuLuc1Open] = useState(false);
+  const [isPhuLucOpen, setIsPhuLucOpen] = useState(false);
+  const [phuLucInitialTab, setPhuLucInitialTab] = useState<VehicleCategory>('truck_dry');
   const [isRefreshingFuel, setIsRefreshingFuel] = useState(false);
 
   // History state
@@ -168,7 +172,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+    <div className="min-h-screen bg-[#FBF9F5] text-slate-800 flex flex-col font-sans selection:bg-red-600 selection:text-white">
       {/* Header */}
       <Header
         currentDieselPrice={input.currentDieselPrice}
@@ -178,20 +182,23 @@ export default function App() {
         onOpenApiChecker={() => setIsApiCheckerOpen(true)}
         onOpenHistory={() => setIsHistoryOpen(true)}
         onOpenComparison={() => setIsComparisonOpen(true)}
-        onOpenPhuLuc1={() => setIsPhuLuc1Open(true)}
+        onOpenPhuLuc1={() => {
+          setPhuLucInitialTab('truck_dry');
+          setIsPhuLucOpen(true);
+        }}
       />
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Navigation Tabs (Mobile & Desktop friendly) */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 pb-3">
+          <div className="flex items-center gap-2 bg-white p-1 rounded-2xl border border-stone-200 flex-wrap shadow-xs">
             <button
               onClick={() => setActiveTab('calculator')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                 activeTab === 'calculator'
-                  ? 'bg-amber-500 text-slate-950 shadow-lg'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  ? 'bg-gradient-to-r from-red-600 via-[#EE0033] to-red-600 text-white shadow-sm shadow-red-600/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-stone-50'
               }`}
             >
               <Calculator className="w-4 h-4" />
@@ -199,32 +206,35 @@ export default function App() {
             </button>
 
             <button
-              onClick={() => setActiveTab('pvoil')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all ${
-                activeTab === 'pvoil'
-                  ? 'bg-amber-500 text-slate-950 shadow-lg'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
+              onClick={() => {
+                setPhuLucInitialTab('truck_dry');
+                setIsPhuLucOpen(true);
+              }}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-700 hover:text-red-600 hover:bg-stone-50 border border-stone-200 transition"
+              title="Xem và chỉnh sửa trực tiếp bảng giá gốc Phụ lục 1 (Xe Nóng) và Phụ lục 2 (Xe Lạnh)"
             >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Bảng Giá Xăng Dầu PVOIL</span>
+              <FileSpreadsheet className="w-4 h-4 text-red-600" />
+              <span>Bảng Giá Phụ Lục 1 &amp; 2 (Viettel)</span>
             </button>
 
             <button
-              onClick={() => setIsPhuLuc1Open(true)}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold text-amber-300 hover:text-white hover:bg-slate-800 transition"
-              title="Xem và chỉnh sửa trực tiếp bảng giá Phụ lục 1 (Xe Nóng)"
+              onClick={() => setActiveTab('pvoil')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                activeTab === 'pvoil'
+                  ? 'bg-gradient-to-r from-red-600 via-[#EE0033] to-red-600 text-white shadow-sm shadow-red-600/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-stone-50'
+              }`}
             >
-              <FileSpreadsheet className="w-4 h-4 text-amber-400" />
-              <span>Bảng Giá Phụ Lục 1 (Xe Nóng)</span>
+              <Fuel className="w-4 h-4" />
+              <span>Bảng Giá Xăng Dầu PVOIL</span>
             </button>
           </div>
 
           {/* Quick Notice Badge */}
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-emerald-400 font-medium">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              API PVOIL Tầng 0 (IP 103.21.120.100)
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-stone-200 text-emerald-700 font-medium shadow-xs">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              API PVOIL Tầng 0 (103.21.120.100)
             </span>
           </div>
         </div>
@@ -239,24 +249,27 @@ export default function App() {
                 onChange={setInput}
                 currentDieselPrice={input.currentDieselPrice}
                 vehicles={vehicles}
-                onOpenPhuLuc1Editor={() => setIsPhuLuc1Open(true)}
+                onOpenPhuLucModal={(cat) => {
+                  setPhuLucInitialTab(cat || input.vehicleCategory);
+                  setIsPhuLucOpen(true);
+                }}
               />
 
               {/* Informational Card on Contract Rules */}
-              <div className="p-4 rounded-2xl bg-slate-900/70 border border-slate-800/80 text-xs text-slate-400 space-y-2">
-                <div className="font-bold text-slate-300 flex items-center gap-1.5">
-                  <HelpCircle className="w-4 h-4 text-amber-400" />
+              <div className="p-4 rounded-2xl bg-white border border-stone-200 text-xs text-slate-600 space-y-2 shadow-xs">
+                <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <HelpCircle className="w-4 h-4 text-red-600" />
                   Quy định phân loại tuyến &amp; Đơn giá (Phụ lục 1 &amp; 2):
                 </div>
-                <ul className="list-disc list-inside space-y-1.5 text-slate-400 leading-relaxed">
+                <ul className="list-disc list-inside space-y-1.5 text-slate-600 leading-relaxed">
                   <li>
-                    <strong className="text-white">Quy tắc đơn giá Bắc - Nam:</strong> CHỈ CÓ từ <strong className="text-amber-300">Nam ra Bắc</strong> hoặc <strong className="text-amber-300">Bắc vào Nam</strong> thì mới sử dụng <strong>Đơn giá Bắc - Nam</strong>.
+                    <strong className="text-slate-900">Quy tắc đơn giá Bắc - Nam:</strong> CHỈ CÓ từ <strong className="text-red-700">Nam ra Bắc</strong> hoặc <strong className="text-red-700">Bắc vào Nam</strong> thì mới sử dụng <strong>Đơn giá Bắc - Nam</strong>.
                   </li>
                   <li>
-                    <strong className="text-white">Quy tắc cận vùng:</strong> Các chặng <strong className="text-blue-300">Bắc ➔ Trung, Trung ➔ Nam, Nam ➔ Trung, Trung ➔ Bắc</strong> và nội miền được áp dụng <strong>Đơn giá Cận Vùng / Nội Vùng</strong>.
+                    <strong className="text-slate-900">Quy tắc cận vùng:</strong> Các chặng <strong className="text-blue-700">Bắc ➔ Trung, Trung ➔ Nam, Nam ➔ Trung, Trung ➔ Bắc</strong> và nội miền (Bắc-Bắc, Trung-Trung, Nam-Nam) được áp dụng <strong>Đơn giá Cận Vùng / Nội Vùng</strong>.
                   </li>
                   <li>
-                    <strong className="text-white">Sau khi xác định đơn giá chuẩn:</strong> Mới nhân với số Km (với cự ly dưới 75km sử dụng <strong>Giá tối thiểu</strong> theo từng loại xe trong bảng).
+                    <strong className="text-slate-900">Sau khi xác định đơn giá chuẩn:</strong> Mới nhân với số Km (với cự ly dưới 75km sử dụng <strong>Giá tối thiểu</strong> theo từng loại xe trong bảng).
                   </li>
                 </ul>
               </div>
@@ -285,20 +298,20 @@ export default function App() {
             />
 
             {/* Callout about PVOil Tier 0 API */}
-            <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="p-5 rounded-2xl bg-white border border-stone-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
               <div>
-                <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Fuel className="w-4 h-4 text-orange-400" />
+                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Fuel className="w-4 h-4 text-red-600" />
                   Kiến trúc API PVOil:{' '}
-                  <code className="text-emerald-300 font-mono">Tầng 0: 103.21.120.100 (Host: www.pvoil.com.vn)</code>
+                  <code className="text-emerald-700 font-mono">Tầng 0: 103.21.120.100 (Host: www.pvoil.com.vn)</code>
                 </h4>
-                <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
                   Kiểm tra độ trễ kết nối trực tiếp vào máy chủ gốc PVOil bỏ qua SSL và xác thực Cloudflare, tự động bóc tách dữ liệu giá dầu DO 0,05S-II.
                 </p>
               </div>
               <button
                 onClick={() => setIsApiCheckerOpen(true)}
-                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition shrink-0"
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs transition shrink-0 shadow-sm shadow-red-600/30"
               >
                 Mở Bảng Kiểm Tra API PVOIL
               </button>
@@ -308,24 +321,42 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800 bg-slate-950 py-4 text-center text-xs text-slate-500 no-print">
+      <footer className="border-t border-stone-200 bg-[#F5F2EB] py-4 text-center text-xs text-slate-500 no-print">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div>
-            Hệ thống tính cước vận chuyển &amp; Bù giá nhiên liệu • Viettel Logistics
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-red-600"></span>
+            <span className="font-semibold text-slate-700">
+              Viettel Logistics • Hệ thống tính giá cước vận chuyển chuẩn
+            </span>
           </div>
-          <div>
-            Căn cứ Phụ lục 1, Phụ lục 2 &amp; Dữ liệu giá xăng dầu Tổng công ty Dầu Việt Nam (PVOIL)
+          <div className="text-[11px] text-slate-400">
+            Căn cứ Phụ lục 1, Phụ lục 2 &amp; API PVOIL 103.21.120.100
           </div>
         </div>
       </footer>
 
       {/* Modals & Drawers */}
-      <PhuLuc1EditorModal
-        isOpen={isPhuLuc1Open}
-        onClose={() => setIsPhuLuc1Open(false)}
+      <PhuLucViewerModal
+        isOpen={isPhuLucOpen}
+        onClose={() => setIsPhuLucOpen(false)}
         vehicles={vehicles}
         onSaveVehicles={handleSavePhuLuc1}
         onResetVehicles={handleResetPhuLuc1}
+        currentDieselPrice={input.currentDieselPrice}
+        initialTab={phuLucInitialTab}
+        onSelectVehicle={(vehicleId) => {
+          const v = vehicles.find((item) => item.id === vehicleId);
+          if (v) {
+            setInput((prev) => ({
+              ...prev,
+              vehicleId: v.id,
+              vehicleCategory: v.category,
+              driverCount: v.driverCount,
+              connectionCategory: v.connectionCategory,
+              isReeferCoolingOff: v.specialType === 'ngat_lanh',
+            }));
+          }
+        }}
       />
 
       <PvoilApiChecker

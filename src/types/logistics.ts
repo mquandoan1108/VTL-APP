@@ -62,6 +62,7 @@ export interface CalculationInput {
   vehicleCategory: VehicleCategory;
   driverCount: 1 | 2;
   connectionCategory?: ConnectionCategory; // 'noi_vung_noi_tinh' | 'bac_nam_can_vung'
+  isReeferCoolingOff?: boolean; // Tùy chọn ngắt lạnh cho xe lạnh
   connectionType: ConnectionType;
   direction: ConnectionDirection;
   fromProvinceId: string;
