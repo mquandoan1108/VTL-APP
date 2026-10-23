@@ -8,7 +8,8 @@ export default defineConfig(() => {
   return {
     plugins: [
       react(),
-      tailwindcss(),
+      tailwindcss()],
+      base: '/VTL-APP/',
       {
         name: 'pvoil-api-middleware',
         configureServer(server) {
