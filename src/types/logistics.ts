@@ -76,6 +76,7 @@ export interface CalculationInput {
   vatRate: number; // 0, 8, hoặc 10%
   petrolimexZone: 1 | 2;
   directionFactorOverride?: number;
+  profitMarginPercent?: number; // 0%, 5%, 10%, 15%, 20%, 25%
 }
 
 export interface CalculationResult {
@@ -117,6 +118,13 @@ export interface CalculationResult {
   vatAmount: number;
   totalWithVat: number;
   
+  // Mức lợi nhuận mong muốn & Báo giá khách hàng
+  profitMarginPercent: number; // 0, 5, 10, 15, 20, 25 (%)
+  profitAmount: number; // Tiền lợi nhuận
+  customerSubtotalBeforeVat: number; // Giá bán trước VAT = subtotalBeforeVat + profitAmount
+  customerVatAmount: number; // VAT tính trên giá bán khách hàng
+  customerTotalWithVat: number; // Tổng cước khách hàng thanh toán (có lợi nhuận)
+
   unitPricePerKmEffective: number;
   summaryText: string;
 }

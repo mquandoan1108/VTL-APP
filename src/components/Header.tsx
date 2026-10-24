@@ -27,67 +27,66 @@ export const Header: React.FC<HeaderProps> = ({
   const isUp = diffPercent >= 0;
 
   return (
-    <header className="sticky top-0 z-30 bg-[#FAF8F5]/95 backdrop-blur-md border-b border-stone-200 text-slate-800 shadow-xs">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20 gap-3 sm:gap-6">
+    <header className="sticky top-0 z-30 bg-[#FAF8F5]/95 backdrop-blur-md border-b border-stone-200 text-slate-800 shadow-2xs">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-[#EE0033] via-red-600 to-rose-700 flex items-center justify-center shadow-md shadow-red-600/25 border border-red-400/40 shrink-0">
-              <span className="text-white font-black text-sm sm:text-lg tracking-wider">VT</span>
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-[#EE0033] via-red-600 to-rose-700 flex items-center justify-center shadow-xs shadow-red-600/25 border border-red-400/40 shrink-0">
+              <span className="text-white font-black text-xs sm:text-sm tracking-wider">VT</span>
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h1 className="text-sm sm:text-lg font-extrabold tracking-tight text-slate-900 leading-none truncate">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h1 className="text-xs sm:text-base font-extrabold tracking-tight text-slate-900 leading-none truncate">
                   Viettel Logistics
                 </h1>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200/90 shadow-2xs shrink-0 whitespace-nowrap">
+                <span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200/90 shadow-2xs shrink-0 whitespace-nowrap">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#EE0033] animate-pulse"></span>
                   <span className="hidden sm:inline">Phát triển bởi </span>
                   <span>Minh Quan Doan</span>
                 </span>
               </div>
-              <div className="text-[11px] sm:text-xs text-slate-500 mt-1 truncate">
-                <span className="hidden sm:inline">Hệ thống tính giá cước vận chuyển &amp; dầu PVOIL</span>
-                <span className="sm:hidden">Tính cước &amp; bù trừ giá dầu PVOIL</span>
+              <div className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 truncate hidden sm:block">
+                Hệ thống tính giá cước vận chuyển &amp; dầu PVOIL
               </div>
             </div>
           </div>
 
           {/* Quick Fuel Price Badge & Actions */}
-          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* Fuel Price Pill */}
             <button
               onClick={onOpenFuelTable}
-              className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-white hover:bg-stone-50 border border-stone-200 hover:border-red-300 transition-all text-left shadow-xs group"
+              className="flex items-center gap-1.5 sm:gap-2 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-xl bg-white hover:bg-stone-50 border border-stone-200 hover:border-red-300 transition-all text-left shadow-2xs group shrink-0"
               title="Xem bảng giá xăng dầu PVOIL chi tiết"
             >
-              <div className="w-7 h-7 rounded-lg bg-red-50 text-[#EE0033] flex items-center justify-center shrink-0 border border-red-100">
-                <Fuel className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg bg-red-50 text-[#EE0033] flex items-center justify-center shrink-0 border border-red-100">
+                <Fuel className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               </div>
               <div className="leading-tight">
-                <div className="flex items-center gap-1 sm:gap-1.5">
-                  <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium">
-                    <span className="hidden xs:inline">PVOIL </span>DO 0,05S (V{petrolimexZone})
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] sm:text-[10px] text-slate-500 font-medium whitespace-nowrap">
+                    <span className="hidden md:inline">PVOIL </span>DO 0,05S (V{petrolimexZone})
                   </span>
                   <span
-                    className={`text-[9px] sm:text-[10px] font-semibold px-1 rounded ${
+                    className={`text-[8px] sm:text-[9px] font-bold px-1 py-0.2 rounded ${
                       isUp ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
                     }`}
                   >
                     {isUp ? '+' : ''}{diffPercent.toFixed(1)}%
                   </span>
                 </div>
-                <div className="text-xs sm:text-sm font-bold text-red-600 mt-0.5">
+                <div className="text-[11px] sm:text-xs font-bold text-red-600 mt-0.5">
                   {formatCurrency(currentDieselPrice)}
                 </div>
               </div>
             </button>
 
             {/* Navigation Buttons */}
-            <div className="flex items-center gap-1 sm:gap-1.5">
+            <div className="flex items-center gap-1">
               <button
                 onClick={onOpenComparison}
-                className="hidden lg:flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-stone-50 rounded-xl border border-stone-200 transition shadow-xs"
+                className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-stone-50 rounded-lg sm:rounded-xl border border-stone-200 transition shadow-2xs"
               >
                 <ArrowRightLeft className="w-3.5 h-3.5 text-red-600" />
                 <span>So sánh xe</span>
@@ -95,7 +94,7 @@ export const Header: React.FC<HeaderProps> = ({
 
               <button
                 onClick={onOpenApiChecker}
-                className="p-1.5 sm:px-3 sm:py-2 flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-stone-50 rounded-xl border border-stone-200 transition shadow-xs"
+                className="p-1.5 sm:px-2.5 sm:py-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-stone-50 rounded-lg sm:rounded-xl border border-stone-200 transition shadow-2xs"
                 title="Kiểm tra kết nối API PVOIL 103.21.120.100"
               >
                 <Activity className="w-3.5 h-3.5 text-red-600" />
@@ -104,7 +103,7 @@ export const Header: React.FC<HeaderProps> = ({
 
               <button
                 onClick={onOpenHistory}
-                className="p-1.5 sm:p-2 text-slate-500 hover:text-slate-900 hover:bg-stone-100 rounded-xl transition"
+                className="p-1.5 sm:p-2 text-slate-500 hover:text-slate-900 hover:bg-stone-100 rounded-lg sm:rounded-xl transition"
                 title="Lịch sử tính cước"
               >
                 <History className="w-4 h-4" />

@@ -100,15 +100,22 @@ export function calculateFreightPrice(input: CalculationInput, customVehicles?: 
     }
   }
 
-  // 9. Tổng cước trước VAT
+  // 9. Tổng cước trước VAT (giá vốn nội bộ)
   const subtotalBeforeVat = Math.round(directionCharge + coolingCost + retentionCost);
 
-  // 10. Thuế VAT
+  // 10. Thuế VAT cho chi phí vốn gốc
   const vatRate = Number(input.vatRate) || 0;
   const vatAmount = Math.round(subtotalBeforeVat * (vatRate / 100));
   const totalWithVat = Math.round(subtotalBeforeVat + vatAmount);
 
-  // 11. Đơn giá bình quân thực tế mỗi km
+  // 11. Mức lợi nhuận mong muốn (5% -> 25%, bước nhảy 5%)
+  const profitMarginPercent = Number(input.profitMarginPercent ?? 10);
+  const profitAmount = Math.round(subtotalBeforeVat * (profitMarginPercent / 100));
+  const customerSubtotalBeforeVat = Math.round(subtotalBeforeVat + profitAmount);
+  const customerVatAmount = Math.round(customerSubtotalBeforeVat * (vatRate / 100));
+  const customerTotalWithVat = Math.round(customerSubtotalBeforeVat + customerVatAmount);
+
+  // 12. Đơn giá bình quân thực tế mỗi km
   const unitPricePerKmEffective = km > 0 ? Math.round(subtotalBeforeVat / km) : 0;
 
   let summaryText = '';
@@ -143,6 +150,11 @@ export function calculateFreightPrice(input: CalculationInput, customVehicles?: 
     subtotalBeforeVat,
     vatAmount,
     totalWithVat,
+    profitMarginPercent,
+    profitAmount,
+    customerSubtotalBeforeVat,
+    customerVatAmount,
+    customerTotalWithVat,
     unitPricePerKmEffective,
     summaryText,
   };

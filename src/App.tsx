@@ -49,6 +49,7 @@ export default function App() {
     retentionDays: 0,
     vatRate: 8,
     petrolimexZone: 1,
+    profitMarginPercent: 10,
   });
 
   // Modal / Drawer visibility states
@@ -56,6 +57,7 @@ export default function App() {
   const [isApiCheckerOpen, setIsApiCheckerOpen] = useState(false);
   const [isComparisonOpen, setIsComparisonOpen] = useState(false);
   const [isQuotationOpen, setIsQuotationOpen] = useState(false);
+  const [quotationMode, setQuotationMode] = useState<'customer' | 'internal'>('customer');
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isPhuLucOpen, setIsPhuLucOpen] = useState(false);
   const [phuLucInitialTab, setPhuLucInitialTab] = useState<VehicleCategory>('truck_dry');
@@ -284,9 +286,15 @@ export default function App() {
               <PriceResultCard
                 result={result}
                 input={input}
-                onOpenQuotation={() => setIsQuotationOpen(true)}
+                onOpenQuotation={(mode) => {
+                  setQuotationMode(mode || 'customer');
+                  setIsQuotationOpen(true);
+                }}
                 onSaveToHistory={handleSaveToHistory}
                 onOpenComparison={() => setIsComparisonOpen(true)}
+                onSelectProfitMargin={(margin) => {
+                  setInput((prev) => ({ ...prev, profitMarginPercent: margin }));
+                }}
               />
             </div>
           </div>
@@ -391,6 +399,7 @@ export default function App() {
         onClose={() => setIsQuotationOpen(false)}
         result={result}
         input={input}
+        initialMode={quotationMode}
       />
 
       <HistoryDrawer
